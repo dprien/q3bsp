@@ -18,7 +18,7 @@ public:
             return;
 
         if (SDL_InitSubSystem(m_flags) == -1)
-            Throwf<CException>("SDL_InitSubSystem: %s", SDL_GetError());
+            throwf<QException>("SDL_InitSubSystem: %s", SDL_GetError());
     }
 
     ~CSdlSentry() throw ()

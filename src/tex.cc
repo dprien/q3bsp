@@ -16,7 +16,7 @@ CImageTex::CImageTex(const char *filename, const PAK3Archive &pak)
     uint8_t *data = uptr.get();
 
     if (!data)
-        Throwf<CException>("%s: Couldn't open file from ZIP archive", filename);
+        throwf<QException>("%s: Couldn't open file from ZIP archive", filename);
 
     try
     {
@@ -50,7 +50,7 @@ CImageTex::CImageTex(const char *filename, const PAK3Archive &pak)
         if (m_pixels)
             delete [] m_pixels;
 
-        Throwf<CException>("%s: ImageMagick: %s", filename, e.what());
+        throwf<QException>("%s: ImageMagick: %s", filename, e.what());
     }
 }
 

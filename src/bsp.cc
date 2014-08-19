@@ -70,7 +70,7 @@ void CBspQ3::LoadTextures(const PAK3Archive &pak)
 
                 break;
             }
-            catch (const CException &e)
+            catch (const QException &e)
             {
             }
         }
@@ -310,7 +310,7 @@ CBspQ3::CBspQ3(const char *filename, const PAK3Archive &pak)
     m_bspData = uptr.release(); // FIXME: Leak!
 
     if (!m_bspData)
-        Throwf<CException>("%s: Couldn't open file from ZIP archive", filename);
+        throwf<QException>("%s: Couldn't open file from ZIP archive", filename);
 
     DHeader_t *header = reinterpret_cast<DHeader_t *>(m_bspData);
 
@@ -319,7 +319,7 @@ CBspQ3::CBspQ3(const char *filename, const PAK3Archive &pak)
         if (header->magic[i] != g_ibspMagic[i])
         {
             delete [] m_bspData;
-            Throwf<CException>("%s: Unsupported file format", filename);
+            throwf<QException>("%s: Unsupported file format", filename);
         }
     }
 

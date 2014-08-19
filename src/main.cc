@@ -48,7 +48,7 @@ CSdlGl::CSdlGl(int width, int height)
     const SDL_VideoInfo *info = SDL_GetVideoInfo();
 
     if (!info)
-        Throwf<CException>("SDL_GetVideoInfo: %s", SDL_GetError());
+        throwf<QException>("SDL_GetVideoInfo: %s", SDL_GetError());
 
     m_bpp = info->vfmt->BitsPerPixel;
 
@@ -72,7 +72,7 @@ CSdlGl::CSdlGl(int width, int height)
     m_surf = SDL_SetVideoMode(m_width, m_height, m_bpp, flags);
 
     if (!m_surf)
-        Throwf<CException>("SDL_SetVideoMode: %s", SDL_GetError());
+        throwf<QException>("SDL_SetVideoMode: %s", SDL_GetError());
 
     SDL_SetGamma(1.4f, 1.4f, 1.4f);
 
@@ -462,9 +462,9 @@ int main(int argc, char *argv[])
 
         Loop(bsp, render);
     }
-    catch (const CException &e)
+    catch (const QException &e)
     {
-        cerr << argv[0] << ": Error: " << e.What() << endl;
+        cerr << argv[0] << ": Error: " << e.what() << endl;
         return 1;
     }
     catch (...)

@@ -1,49 +1,38 @@
-#ifndef EXCEPTION__H
-#define EXCEPTION__H
+#ifndef Q3BSP__EXCEPTION_H
+#define Q3BSP__EXCEPTION_H
 
 #include <string>
 
 #include <cstdio>
 #include <cstdarg>
 
-// =================================================
-// =================================================
-
-class CException
+class QException
 {
-    const std::string  m_message;
+    public:
+        explicit QException(const char* message)
+            : m_message(message)
+        {}
 
-public:
-    explicit CException(const char *message)
-        : m_message(message)
-    {
-    }
+        virtual ~QException() noexcept
+        {}
 
-    virtual ~CException() throw ()
-    {
-    }
+        const std::string& what() const
+        {
+            return m_message;
+        }
 
-    const std::string &What() const
-    {
-        return m_message;
-    }
+    private:
+        const std::string m_message;
 };
 
-// =================================================
-// =================================================
-
-template <class T>
-void Throwf(const char *fmt, ...)
+template <class T = QException>
+void throwf(const char* fmt, ...)
 {
-    const int bufLen = 1024;
-    char buf[bufLen];
-
     va_list ap;
     va_start(ap, fmt);
-
-    std::vsnprintf(buf, bufLen, fmt, ap);
+    char buf[1024];
+    std::vsnprintf(buf, sizeof(buf), fmt, ap);
     va_end(ap);
-
     throw T(buf);
 }
 
