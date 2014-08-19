@@ -1,6 +1,7 @@
 #include <iostream>
 #include <iomanip>
 #include <list>
+#include <algorithm>
 
 using std::cout;
 using std::endl;
@@ -46,7 +47,7 @@ namespace
 
 // private:
 // =================================================
-void CBspQ3::LoadTextures(const CPk3Archive &pak)
+void CBspQ3::LoadTextures(const PAK3Archive &pak)
 {
     const char *fileExts[2] = { ".jpg", ".tga" };
     CTexManager &texMgr = CTexManager::Instance();
@@ -67,7 +68,6 @@ void CBspQ3::LoadTextures(const CPk3Archive &pak)
                 CImageTex bspTex(texFile.c_str(), pak);
                 texId = texMgr.Add(bspTex);
 
-				cout << "  " << texFile << endl;
                 break;
             }
             catch (const CException &e)
@@ -304,9 +304,10 @@ void CBspQ3::Render(const CFrustum &frustum) const
 
 // public:
 // =================================================
-CBspQ3::CBspQ3(const char *filename, const CPk3Archive &pak)
+CBspQ3::CBspQ3(const char *filename, const PAK3Archive &pak)
 {
-    m_bspData = pak.GetFile(filename, 0);
+    auto uptr = pak.read_file(filename);
+    m_bspData = uptr.release(); // FIXME: Leak!
 
     if (!m_bspData)
         Throwf<CException>("%s: Couldn't open file from ZIP archive", filename);

@@ -2,6 +2,7 @@
 #define BSP__H
 
 #include <vector>
+#include <cstdint>
 
 #define GL_GLEXT_PROTOTYPES
 #include <GL/gl.h>
@@ -19,7 +20,7 @@ class CBspQ3
 
 	typedef std::vector<int>				IndexList_t;
 
-    char            *m_bspData;
+    uint8_t         *m_bspData;
 
     size_t          m_nTextures;
     DTexture_t      *m_textures;
@@ -52,7 +53,7 @@ class CBspQ3
     GlTexId_t       m_glTexIds;
     GlTexId_t       m_glLmapIds;
 
-    void LoadTextures(const CPk3Archive &);
+    void LoadTextures(const PAK3Archive &);
     void ProcessLightmaps(const DLightmap_t *, size_t);
     
 	void DrawFace(size_t) const;
@@ -69,7 +70,7 @@ class CBspQ3
     void operator = (const CBspQ3 &);
 
 public:
-    CBspQ3(const char *, const CPk3Archive &);
+    CBspQ3(const char *, const PAK3Archive &);
     ~CBspQ3() throw ();
 
     void Render(const CVec &, const CFrustum &) const;

@@ -446,7 +446,7 @@ int main(int argc, char *argv[])
     try
     {
 		Uint32 mticks = SDL_GetTicks();
-        CPk3Archive pak(argv[1]);
+        PAK3Archive pak(argv[1]);
 
         CSdlGl render(1280, 800);
         SDL_WM_GrabInput(SDL_GRAB_ON);

@@ -1,14 +1,12 @@
 #ifndef TEX__H
 #define TEX__H
 
-#include <string>
 #include <list>
-
-#include "Magick++.h"
+#include <cstdint>
 
 #include "types.h"
-#include "zipfile.h"
 #include "ibsp46.h"
+#include "zipfile.h"
 
 class ITexture
 {
@@ -34,7 +32,7 @@ class CImageTex : public ITexture
     void operator = (CImageTex const &);
 
 public:
-    explicit CImageTex(const char *, const CPk3Archive &);
+    explicit CImageTex(const char *, const PAK3Archive &);
     ~CImageTex() throw ();
 
     int GetWidth() const;

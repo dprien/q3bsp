@@ -1,16 +1,19 @@
 #include <GL/gl.h>
 #include <GL/glu.h>
 
+#include "Magick++.h"
+
 #include "tex.h"
 #include "exception.h"
 
 // public:
 // =================================================
-CImageTex::CImageTex(const char *filename, const CPk3Archive &pak)
+CImageTex::CImageTex(const char *filename, const PAK3Archive &pak)
     : m_pixels(0)
 {
-    uint32_t len;
-    char *data = pak.GetFile(filename, &len);
+    uint64_t len;
+    auto uptr = pak.read_file(filename, &len);
+    uint8_t *data = uptr.get();
 
     if (!data)
         Throwf<CException>("%s: Couldn't open file from ZIP archive", filename);
