@@ -1,5 +1,3 @@
-// $Id$
-
 #ifndef BEZIER__H
 #define BEZIER__H
 

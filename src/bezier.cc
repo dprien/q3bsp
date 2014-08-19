@@ -1,5 +1,3 @@
-// $Id$
-
 #include <cmath>
 
 #define GL_GLEXT_PROTOTYPES

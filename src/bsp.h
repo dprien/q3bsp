@@ -1,5 +1,3 @@
-// $Id$
-
 #ifndef BSP__H
 #define BSP__H
 

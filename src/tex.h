@@ -1,5 +1,3 @@
-// $Id$
-
 #ifndef TEX__H
 #define TEX__H
 

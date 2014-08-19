@@ -1,5 +1,3 @@
-// $Id$
-
 #ifndef TYPES__H
 #define TYPES__H
 

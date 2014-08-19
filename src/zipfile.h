@@ -1,5 +1,3 @@
-// $Id$
-
 #ifndef ZIPFILE__H
 #define ZIPFILE__H
 

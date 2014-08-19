@@ -1,5 +1,3 @@
-// $Id$
-
 #ifndef FRUSTUM__H
 #define FRUSTUM__H
 

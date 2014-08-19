@@ -1,5 +1,3 @@
-// $Id$
-
 #include <cmath>
 
 #include <GL/gl.h>

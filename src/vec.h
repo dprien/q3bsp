@@ -1,5 +1,3 @@
-// $Id$
-
 #ifndef FLOAT__H
 #define FLOAT__H
 

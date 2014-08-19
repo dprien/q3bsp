@@ -1,5 +1,3 @@
-// $Id$
-
 #ifndef SDLSENTRY__H
 #define SDLSENTRY__H
 
