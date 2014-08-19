@@ -4,163 +4,109 @@
 #include "zipfile.h"
 #include "exception.h"
 
-// public:
-// ==============================================
-CZipFile::CZipFile(const char *filename)
+#include <zip.h>
+
+ZIPFile::ZIPFile(const char* filename)
+    : archive_filename(filename)
 {
-    m_zipFd = unzOpen(filename);
-
-    if (m_zipFd == NULL)
-        Throwf<CException>("%s: unzOpen: Error opening ZIP file", filename);
-
-    int r = unzGoToFirstFile(m_zipFd);
-
-    while (r == UNZ_OK)
-    {
-        InfoRec_t fi;
-        char zipFilename[257];
-
-        r = unzGetCurrentFileInfo(m_zipFd, &fi.info, zipFilename, 256, 0, 0, 0, 0);
-
-        if (r != UNZ_OK)
-        {
-            unzClose(m_zipFd);
-            Throwf<CException>("%s: unzGetCurrentFileInfo: Failed", filename);
-        }
-
-        r = unzGetFilePos(m_zipFd, &fi.pos);
-
-        if (r != UNZ_OK)
-        {
-            unzClose(m_zipFd);
-            Throwf<CException>("%s: unzGetFilePos: Failed", filename);
-        }
-
-        m_list[zipFilename] = fi;
-        r = unzGoToNextFile(m_zipFd);
+    int r;
+    m_archive = zip_open(filename, 0, &r);
+    if (m_archive == nullptr) {
+        char buf[1024];
+        zip_error_to_str(buf, sizeof(buf), r, errno);
+        throwf("ZIPFile: zip_open: %s: %s", filename, buf);
     }
 }
 
-CZipFile::~CZipFile() throw ()
+ZIPFile::~ZIPFile() noexcept
 {
-    unzClose(m_zipFd);
+    zip_close(m_archive);
 }
 
-char *CZipFile::GetFile(const char *filename, uint32_t *len) const
+bool ZIPFile::file_exists(const char* filename) const
 {
-    FileList_t::const_iterator p = m_list.find(filename);
+    return zip_name_locate(m_archive, filename, ZIP_FL_NOCASE) != -1;
+}
 
-    if (p == m_list.end())
-        return 0;
-
-    unz_file_pos pos = p->second.pos;
-
-    if (unzGoToFilePos(m_zipFd, &pos) != UNZ_OK)
-        Throwf<CException>("%s: unzGoToFilePos: Failed", filename);
-
-    if (unzOpenCurrentFile(m_zipFd) != UNZ_OK)
-        Throwf<CException>("%s: unzOpenCurrentFile: Failed", filename);
-
-    const unz_file_info &info = p->second.info;
-
-    char *buf = new char[info.uncompressed_size];
-    int r = unzReadCurrentFile(m_zipFd, buf, info.uncompressed_size);
-
-    if (r < 0)
-    {
-        delete [] buf;
-        unzCloseCurrentFile(m_zipFd);
-
-        Throwf<CException>("%s: unzReadCurrentFile: Failed", filename);
+std::unique_ptr<std::uint8_t[]> ZIPFile::read_file(const char* filename,
+        std::uint64_t* out_size) const
+{
+    struct zip_stat stat;
+    if (zip_stat(m_archive, filename, ZIP_FL_NOCASE, &stat) == -1) {
+        throwf("ZIPFile: zip_stat: %s: %s", filename, zip_strerror(m_archive));
+    }
+    if ((stat.valid & ZIP_STAT_NAME) == 0) {
+        throwf("ZIPFile: zip_stat: %s: ZIP_STAT_NAME not set", filename);
     }
 
-    uint32_t rsize = uint32_t(r);
-
-    if (rsize != info.uncompressed_size)
-    {
-        delete [] buf;
-        unzCloseCurrentFile(m_zipFd);
-
-        Throwf<CException>("%s: unzReadCurrentFile: Read %lu byte, expected %lu byte",
-            filename, rsize, info.uncompressed_size);
+    struct zip_file* zf = zip_fopen(m_archive, filename, 0);
+    if (zf == nullptr) {
+        return nullptr;
     }
 
-    if (unzCloseCurrentFile(m_zipFd) != UNZ_OK)
-    {
-        delete [] buf;
-        Throwf<CException>("%s: unzCloseCurrentFile: Checksum error in ZIP", filename);
+    auto buf = std::make_unique<std::uint8_t[]>(stat.size);
+    zip_int64_t nbytes_read = zip_fread(zf, buf.get(), stat.size);
+    if (nbytes_read == -1) {
+        throwf("ZIPFile: zip_fread: %s: %s", filename, zip_file_strerror(zf));
+    }
+    if (static_cast<zip_uint64_t>(nbytes_read) != stat.size) {
+        throwf("ZIPFile: zip_fread: %s: Read %d bytes, expected %lu bytes",
+                filename, nbytes_read, stat.size);
     }
 
-    if (len)
-        *len = rsize;
+    zip_fclose(zf);
 
+    if (out_size != nullptr) {
+        *out_size = stat.size;
+    }
     return buf;
 }
 
-bool CZipFile::FileExists(const char *filename) const
+PAK3Archive::PAK3Archive(const char* path, const int max_pak_files)
+    : m_max_pak_files(max_pak_files)
 {
-    FileList_t::const_iterator p = m_list.find(filename);
+    std::string cpath(path);
+    if (cpath.back() == '/')
+        cpath.pop_back();
 
-    if (p == m_list.end())
-        return false;
-
-    return true;
-}
-
-// =======================================================================
-// =======================================================================
-
-// public:
-// ==============================================
-CPk3Archive::CPk3Archive(const char *cpath)
-{
-    std::string path = cpath;
-
-    for (std::string::iterator p = path.begin(); p != path.end(); ++p)
-        if (*p == '\\')
-            *p = '/';
-
-    if (path[path.length() - 1] != '/')
-        path += '/';
-
-    for (int i = 0; i < 10; ++i)
-    {
+    for (int i = 0; i < m_max_pak_files; ++i) {
         std::ostringstream filename;
-        filename << path << "pak" << i << ".pk3";
-
-        try
-        {
-            CZipFile *zip = new CZipFile(filename.str().c_str());
-            m_zips.push_back(zip);
+        filename << cpath << "/pak" << i << ".pk3";
+        try {
+            ZIPFile* zip = new ZIPFile(filename.str().c_str());
+            m_zip_files.push_back(zip);
+            std::cerr << "PAK3Archive: Using " << filename.str() << std::endl;
         }
-        catch (const CException &)
-        {
-            if (i == 0)
-                throw;
-
+        catch (const QException&) {
             break;
         }
-
-        std::cout << "Using " << filename.str() << std::endl;
+    }
+    if (m_zip_files.empty()) {
+        throwf("PAK3Archive: No PK3 files could be read");
     }
 }
 
-CPk3Archive::~CPk3Archive() throw ()
+PAK3Archive::~PAK3Archive() noexcept
 {
-    for (ZipList_t::const_iterator p = m_zips.begin(); p != m_zips.end(); ++p)
-        delete *p;
+    for (auto&& p : m_zip_files) {
+        delete p;
+    }
 }
 
-char *CPk3Archive::GetFile(const char *filename, uint32_t *len) const
+std::unique_ptr<std::uint8_t[]> PAK3Archive::read_file(const char* filename,
+        std::uint64_t* out_size) const
 {
-    ZipList_t::const_iterator p = m_zips.begin(), best = m_zips.end();
-
-    for ( ; p != m_zips.end(); ++p)
-        if ((*p)->FileExists(filename))
+    const ZIPFile* best = nullptr;
+    for (auto&& p : m_zip_files) {
+        if (p->file_exists(filename)) {
             best = p;
+        }
+    }
+    if (best == nullptr) {
+        return nullptr;
+    }
 
-    if (best == m_zips.end())
-        return 0;
-
-    return (*best)->GetFile(filename, len);
+    std::cerr << "PAK3Archive: reading: " << best->archive_filename << ": " <<
+        filename << std::endl;
+    return best->read_file(filename, out_size);
 }

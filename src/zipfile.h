@@ -3,60 +3,51 @@
 
 #include <string>
 #include <list>
-#include <map>
+#include <memory>
+#include <cstdint>
 
-#include "types.h"
-#include "zlib/contrib/minizip/unzip.h"
+#include <zip.h>
 
-class CZipFile
+class ZIPFile
 {
-    class CFilenameCompare
-    {
+    private:
+        struct zip* m_archive;
+
     public:
-        bool operator () (const std::string &s1, const std::string &s2) const
-        {
-            return unzStringFileNameCompare(s1.c_str(), s2.c_str(), 1) < 0;
-        }
-    };
+        const std::string archive_filename;
 
-    typedef struct
-    {
-        unz_file_info   info;
-        unz_file_pos    pos;
-    } InfoRec_t;
+    public:
+        explicit ZIPFile(const char*);
+        ~ZIPFile() noexcept;
 
-    typedef std::map<std::string, InfoRec_t, CFilenameCompare> FileList_t;
+        ZIPFile(const ZIPFile&) = delete;
+        void operator=(const ZIPFile&) = delete;
 
-    unzFile     m_zipFd;
-    FileList_t  m_list;
-
-    CZipFile(const CZipFile &);
-    void operator = (const CZipFile &);
-
-public:
-    explicit CZipFile(const char *);
-    ~CZipFile() throw ();
-
-    char *GetFile(const char *, uint32_t *) const;
-    bool FileExists(const char *) const;
+        bool file_exists(const char*) const;
+        std::unique_ptr<std::uint8_t[]> read_file(const char*,
+                std::uint64_t* = nullptr) const;
 };
 
 // =======================================================================
 // =======================================================================
 
-class CPk3Archive
+class PAK3Archive
 {
-    typedef std::list<CZipFile *> ZipList_t;
-    ZipList_t   m_zips;
+    private:
+        typedef std::list<ZIPFile*> zip_list_t;
 
-    CPk3Archive(const CPk3Archive &);
-    void operator = (const CPk3Archive &);
+        const int   m_max_pak_files;
+        zip_list_t  m_zip_files;
 
-public:
-    explicit CPk3Archive(const char *);
-    ~CPk3Archive() throw ();
+    public:
+        explicit PAK3Archive(const char*, const int = 10);
+        ~PAK3Archive() noexcept;
 
-    char *GetFile(const char *, uint32_t *) const;
+        PAK3Archive(const PAK3Archive&) = delete;
+        void operator=(const PAK3Archive&) = delete;
+
+        std::unique_ptr<std::uint8_t[]> read_file(const char*,
+                std::uint64_t* = nullptr) const;
 };
 
 #endif
