@@ -1,16 +1,16 @@
 CXXFLAGS =\
- -g\
- -pipe\
  -std=c++1y\
- -O2\
+ -pipe\
  -fstrict-aliasing\
  -fno-common\
+ -O2\
+ -g\
  -pedantic\
  -Wall\
  -Wextra
 
 INCLUDES =\
- `sdl-config --cflags`\
+ `sdl2-config --cflags`\
  `Magick++-config --cppflags`
 
 LDFLAGS =\
@@ -21,7 +21,7 @@ LIBS =\
  -lzip\
  -lGL\
  -lGLU\
- `sdl-config --libs`\
+ `sdl2-config --libs`\
  `Magick++-config --libs`
 
 CXXSRCS =\

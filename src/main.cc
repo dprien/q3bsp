@@ -1,83 +1,64 @@
 #include <iostream>
-#include <iomanip>
-#include <sstream>
 #include <string>
-#include <locale>
 #include <deque>
+#include <algorithm>
+#include <cstdio>
+#include <cmath>
 
-using std::cout;
-using std::cerr;
-using std::endl;
-
-#include <clocale>
+#include <SDL2/SDL.h>
 
 #include <GL/gl.h>
 #include <GL/glu.h>
 
-#include "SDL.h"
-
 #include "exception.h"
-#include "sdlsentry.h"
 #include "bsp.h"
 #include "vec.h"
 #include "zipfile.h"
 #include "tex.h"
 #include "frustum.h"
 
-class CSdlGl
+class Render
 {
-    int         m_width;
-    int         m_height;
-    int         m_bpp;
+    private:
+        int             m_width;
+        int             m_height;
+        SDL_Window*     m_window;
+        SDL_GLContext   m_context;
 
-    CSdlSentry  m_videoInit;
+    public:
+        Render(int, int);
+        ~Render() noexcept;
 
-    SDL_Surface *m_surf;
-
-public:
-    CSdlGl(int, int);
-    ~CSdlGl() throw ();
-
-    void NewFrame() const;
-    void EndFrame() const;
+        void new_frame() const;
+        void end_frame() const;
 };
 
-CSdlGl::CSdlGl(int width, int height)
-    : m_width(width), m_height(height), m_videoInit(SDL_INIT_VIDEO)
+Render::Render(const int width, const int height)
+    : m_width(width), m_height(height)
 {
-    const SDL_VideoInfo *info = SDL_GetVideoInfo();
+    m_window = SDL_CreateWindow(
+            "q3bsp",
+            SDL_WINDOWPOS_UNDEFINED,
+            SDL_WINDOWPOS_UNDEFINED,
+            m_width,
+            m_height,
+            SDL_WINDOW_OPENGL);
+    if (!m_window) {
+        throwf("SDL_CreateWindow: %s", SDL_GetError());
+    }
 
-    if (!info)
-        throwf<QException>("SDL_GetVideoInfo: %s", SDL_GetError());
-
-    m_bpp = info->vfmt->BitsPerPixel;
-
-    std::ostringstream caption;
-    caption << m_width << "x" << m_height << " pixels, " << m_bpp << " bpp";
-
-    SDL_WM_SetCaption(caption.str().c_str(), "");
-    SDL_ShowCursor(SDL_DISABLE);
+    m_context = SDL_GL_CreateContext(m_window);
 
     SDL_GL_SetAttribute(SDL_GL_RED_SIZE, 5);
     SDL_GL_SetAttribute(SDL_GL_GREEN_SIZE, 5);
     SDL_GL_SetAttribute(SDL_GL_BLUE_SIZE, 5);
     SDL_GL_SetAttribute(SDL_GL_ALPHA_SIZE, 0);
 
+    SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
+
     SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 16);
     SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 0);
 
-    SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
-
-    Uint32 flags = SDL_OPENGL | SDL_HWPALETTE; // | SDL_FULLSCREEN;
-    m_surf = SDL_SetVideoMode(m_width, m_height, m_bpp, flags);
-
-    if (!m_surf)
-        throwf<QException>("SDL_SetVideoMode: %s", SDL_GetError());
-
-    SDL_SetGamma(1.4f, 1.4f, 1.4f);
-
-    // Initialize OpenGL
-    // =====================================================================
     glEnable(GL_COLOR_ARRAY);
     glEnable(GL_TEXTURE_COORD_ARRAY);
     glEnable(GL_VERTEX_ARRAY);
@@ -101,374 +82,311 @@ CSdlGl::CSdlGl(int width, int height)
 
     glMatrixMode(GL_PROJECTION);
     glLoadIdentity();
-
     gluPerspective(60.0, m_width / double(m_height), 4.0, 15000.0);
 
     glMatrixMode(GL_MODELVIEW);
     glLoadIdentity();
 }
 
-CSdlGl::~CSdlGl() throw ()
+Render::~Render() noexcept
 {
+    SDL_GL_DeleteContext(m_context);
 }
 
-void CSdlGl::NewFrame() const
+void Render::new_frame() const
 {
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 }
 
-void CSdlGl::EndFrame() const
+void Render::end_frame() const
 {
-    SDL_GL_SwapBuffers();
+    SDL_GL_SwapWindow(m_window);
 }
 
-// =======================================================================
-// =======================================================================
-
-class CFrameTimer
+class FrameTimer
 {
-    Uint32  m_startTicks;
-    Uint32  m_totalTicks;
-    Uint32  m_frameTicks;
+    private:
+        Uint32  m_start_ticks;
+        Uint32  m_total_ticks;
+        Uint32  m_frame_ticks;
 
-public:
-	CFrameTimer()
-		: m_startTicks(SDL_GetTicks()), m_totalTicks(0), m_frameTicks(0)
-	{
-	}
+    public:
+        FrameTimer()
+            : m_start_ticks(SDL_GetTicks()), m_total_ticks(0), m_frame_ticks(0)
+        {}
 
-	Uint32 GetTotalTicks() const
-	{
-		return m_totalTicks;
-	}
-
-	Uint32 GetFrameTicks() const
-	{
-		return m_frameTicks;
-	}
-
-    void Update();
-};
-
-void CFrameTimer::Update()
-{
-    Uint32 curTicks = SDL_GetTicks() - m_startTicks;
-
-    m_frameTicks = curTicks - m_totalTicks;
-    m_totalTicks = curTicks;
-}
-
-// ==========================================================================
-// ==========================================================================
-
-class CMovement : public CVec
-{
-    CVec    m_speed;
-
-public:
-    CMovement(float = 0.0f, float = 0.0f, float = 0.0f);
-
-    void ApplyAcceleration(const CVec &, float);
-    void ApplyFriction(float);
-    void ApplySpeed(float);
-};
-
-inline CMovement::CMovement(float px, float py, float pz)
-    : CVec(px, py, pz)
-{
-}
-
-inline void CMovement::ApplyAcceleration(const CVec &dir, float)
-{
-    m_speed += dir;
-    float m = m_speed.Magnitude();
-
-    if (m > 1.0f)
-        m_speed *= 1.0f / m;
-}
-
-inline void CMovement::ApplyFriction(float)
-{
-    m_speed *= 0.85f;
-}
-
-inline void CMovement::ApplySpeed(float acc)
-{
-    *this += m_speed * acc;
-}
-
-// ==========================================================================
-// ==========================================================================
-
-class CFrameStats
-{
-	typedef std::deque<Uint32> tickQueue_t;
-
-	const Uint32	m_maxTicks;
-	
-	tickQueue_t		m_tickQueue;
-	Uint32			m_cumulTicks;
-	
-	unsigned long	m_cumulFrames;
-
-	public:
-	CFrameStats(Uint32 maxTicks = 1000)
-		: m_maxTicks(maxTicks), m_cumulTicks(0), m_cumulFrames(0)
-	{
-	}	
-	
-	Uint32 GetCumulTicks() const
-	{
-		return m_cumulTicks;
-	};
-	
-	unsigned long GetCumulFrames() const
-	{
-		return m_cumulFrames;
-	}
-	
-	void NewFrame(Uint32);
-};
-
-void CFrameStats::NewFrame(Uint32 ticks)
-{
-	m_tickQueue.push_back(ticks);
-	m_cumulTicks  += ticks;
-	
-	++m_cumulFrames;
-
-	while (m_cumulTicks > m_maxTicks)
-	{
-		m_cumulTicks -= m_tickQueue.front();
-		m_tickQueue.pop_front();
-
-		--m_cumulFrames;
-	}
-}
-
-// ==========================================================================
-// ==========================================================================
-
-void Loop(CBspQ3 &bsp, CSdlGl &render)
-{
-    unsigned long totalFrames = 0, refreshTime = 0;
-	
-	bool isDone = false;
-    float pitch = 0.0f, yaw = 0.0f;
-    CMovement cam;
-
-    CFrameTimer ft;
-	CFrameStats fpsStats;
-
-    while (!isDone)
-    {
-        SDL_Event event;
-
-        while (SDL_PollEvent(&event))
+        Uint32 get_total_ticks() const
         {
-            switch (event.type)
-            {
-                case SDL_QUIT:
-                    isDone = true;
-                    break;
+            return m_total_ticks;
+        }
 
-                case SDL_KEYUP:
-                    if (event.key.keysym.sym == SDLK_ESCAPE)
-                        isDone = true;
+        Uint32 get_frame_ticks() const
+        {
+            return m_frame_ticks;
+        }
 
-                    break;
+        void update()
+        {
+            Uint32 cur_ticks = SDL_GetTicks() - m_start_ticks;
+            m_frame_ticks = cur_ticks - m_total_ticks;
+            m_total_ticks = cur_ticks;
+        }
+};
 
-                case SDL_MOUSEMOTION:
-                    yaw     += event.motion.xrel / 4.0f;
-                    pitch   += event.motion.yrel / 4.0f;
+class Physics : public CVec
+{
+    private:
+        CVec m_speed;
 
-                    if (pitch >  90.0f) pitch =  90.0f;
-                    if (pitch < -90.0f) pitch = -90.0f;
+    public:
+        Physics(const float px = 0.0f, const float py = 0.0f,
+                const float pz = 0.0f)
+            : CVec(px, py, pz)
+        {}
 
-                    break;
+        void apply_acceleration(const CVec& dir, const float)
+        {
+            m_speed += dir;
+            const float m = m_speed.Magnitude();
+            if (m > 1.0f) {
+                m_speed *= 1.0f / m;
             }
         }
 
-        ft.Update();
-		float acc = ft.GetFrameTicks() / 3.0f;
-
-		fpsStats.NewFrame(ft.GetFrameTicks());
-		refreshTime += ft.GetFrameTicks();
-
-		if (refreshTime >= 250)
-		{
-	        cout << "\r" << std::fixed << std::setprecision(2);
-
-			cout <<
-				fpsStats.GetCumulFrames() / (fpsStats.GetCumulTicks() / 1000.0) <<
-				" frames/sec | ";
-
-			cout <<
-				fpsStats.GetCumulTicks() / double(fpsStats.GetCumulFrames()) <<
-				" msec/frame | ";
-
-			cout << "avg: " <<
-				totalFrames / (ft.GetTotalTicks() / 1000.0) <<
-				" frames/sec";
-			
-			cout << "  \b\b" << std::flush;
-
-			refreshTime = 0;
-		}
-
-		const Uint32 minFrameTicks = 1000 / 1000;
-
-		static Uint32 prevTotalTicks = SDL_GetTicks();		
-		Uint32 curTotalTicks = SDL_GetTicks();
-
-		Uint32 curTickDiff = curTotalTicks - prevTotalTicks;
-		prevTotalTicks = curTotalTicks;
-
-		if (curTickDiff < minFrameTicks)
-		{
-			SDL_Delay(minFrameTicks - curTickDiff);			
-			prevTotalTicks = SDL_GetTicks();
-		}
-
-		++totalFrames;
-
-        CMat mdir;
-
-        MatYRot(mdir, yaw);
-        MatXRot(mdir, pitch);
-
-        Uint8 *keys = SDL_GetKeyState(0);
-
-        if (keys[SDLK_SPACE])
+        void apply_friction(const float /* acc */)
         {
-            CVec delta(0.0f, 0.2f, 0.0f);
-            cam.ApplyAcceleration(delta, acc);
+            m_speed *= 0.85f;
         }
 
-        if (keys[SDLK_LCTRL] || keys[SDLK_c])
+        void apply_speed(const float acc)
         {
-            CVec delta(0.0f, -0.2f, 0.0f);
-            cam.ApplyAcceleration(delta, acc);
+            *this += m_speed * acc;
+        }
+};
+
+class FrameStats
+{
+    typedef std::deque<Uint32> tick_queue_t;
+
+    const Uint32    m_max_ticks;
+    tick_queue_t    m_tick_queue;
+    Uint32          m_ticks;
+    unsigned long   m_frames;
+
+    public:
+        FrameStats(const Uint32 max_ticks = 1000)
+            : m_max_ticks(max_ticks), m_ticks(0), m_frames(0)
+        {}
+
+        Uint32 get_ticks() const
+        {
+            return m_ticks;
+        };
+
+        unsigned long get_frames() const
+        {
+            return m_frames;
         }
 
-        if (keys[SDLK_a])
+        void new_frame(const Uint32 ticks)
         {
-            CVec delta(-0.2f, 0.0f, 0.0f);
-            delta *= mdir;
-
-            cam.ApplyAcceleration(delta, acc);
+            m_tick_queue.push_back(ticks);
+            m_ticks += ticks;
+            ++m_frames;
+            while (m_ticks > m_max_ticks) {
+                m_ticks -= m_tick_queue.front();
+                m_tick_queue.pop_front();
+                --m_frames;
+            }
         }
+};
 
-        if (keys[SDLK_d])
-        {
-            CVec delta(0.2f, 0.0f, 0.0f);
-            delta *= mdir;
-
-            cam.ApplyAcceleration(delta, acc);
+void process_events(bool* done, float* yaw, float* pitch, float*)
+{
+    SDL_Event event;
+    while (SDL_PollEvent(&event)) {
+        switch (event.type) {
+            case SDL_QUIT: {
+                *done = true;
+                break;
+            }
+            case SDL_KEYUP: {
+                if (event.key.keysym.sym == SDLK_ESCAPE) {
+                    *done = true;
+                }
+                else if (event.key.keysym.sym == SDLK_f) {
+                    SDL_SetRelativeMouseMode(SDL_FALSE);
+                }
+                break;
+            }
+            case SDL_MOUSEBUTTONDOWN: {
+                if (event.button.button == SDL_BUTTON_LEFT) {
+                    SDL_SetRelativeMouseMode(SDL_TRUE);
+                }
+                break;
+            }
+            case SDL_MOUSEMOTION: {
+                static int old_mode = SDL_GetRelativeMouseMode();
+                int cur_mode = SDL_GetRelativeMouseMode();
+                if (cur_mode != old_mode) {
+                    // After a switch, SDL2 generates a spurious
+                    // MOUSEMOTION event with *huge* deltas,
+                    // that should be ignored.
+                }
+                else if (cur_mode) {
+                    *yaw += std::fmod(
+                            event.motion.xrel / 7.0f,
+                            360.0f);
+                    *pitch = std::min(
+                            90.0f,
+                            std::max(
+                                -90.0f,
+                                *pitch + event.motion.yrel / 7.0f));
+                }
+                old_mode = cur_mode;
+                break;
+            }
         }
-
-        if (keys[SDLK_s])
-        {
-            CVec delta(0.0f, 0.0f, 0.2f);
-            delta *= mdir;
-
-            cam.ApplyAcceleration(delta, acc);
-        }
-
-        if (keys[SDLK_w])
-        {
-            CVec delta(0.0f, 0.0f, -0.2f);
-            delta *= mdir;
-
-            cam.ApplyAcceleration(delta, acc);
-        }
-
-        cam.ApplySpeed(acc);
-        cam.ApplyFriction(acc);
-
-        CMat mat;
-        MatTrans(mat, -cam.x, -cam.y, -cam.z);
-        mat *= mdir;
-
-        render.NewFrame();
-		
-		glLoadMatrixf(mat.GetMatrix());
-		CFrustum frustum;
-
-		if (keys[SDLK_x])
-			glLoadIdentity();
-
-		//render.NewFrame();
-        bsp.Render(cam, frustum);
-
-		render.EndFrame();
     }
-
-    cout << endl;
 }
 
-int main(int argc, char *argv[])
+float step()
 {
-	// C++ locale
-    std::locale loc("");
-    std::locale::global(loc);
+    static unsigned long total_frames = 0;
+    static unsigned long refresh_time = 0;
+    static FrameTimer ft;
+    static FrameStats fps_stats;
 
-    std::cin.imbue(loc);
-    cout.imbue(loc);
-    cerr.imbue(loc);
-    std::clog.imbue(loc);
+    ft.update();
+    fps_stats.new_frame(ft.get_frame_ticks());
+    refresh_time += ft.get_frame_ticks();
 
-    // C locale
-    std::setlocale(LC_ALL, "");
+    if (refresh_time >= 250) {
+        refresh_time = 0;
 
-    if (argc < 3)
-    {
-        cerr << "Usage: " << argv[0] << " <path> <map> [<overbright bits>]" << endl;
-        return 1;
+        float fps = fps_stats.get_frames() / (fps_stats.get_ticks() / 1000.0f);
+        float mspf = fps_stats.get_ticks() / float(fps_stats.get_frames());
+        float avg = total_frames / (ft.get_total_ticks() / 1000.0f);
+        std::printf(
+                "\r"
+                "%0.2f frames/sec, "
+                "%0.2f msec/frame, "
+                "%0.2f frames/sec avg  \b\b",
+                fps, mspf, avg);
+        std::fflush(stdout);
+    }
+    ++total_frames;
+
+    return ft.get_frame_ticks() / 3.0f;
+}
+
+CMat physics(const float acc, const CMat& mdir, Physics* cam)
+{
+    const Uint8* keys = SDL_GetKeyboardState(nullptr);
+    if (keys[SDL_SCANCODE_W]) {
+        CVec delta(0.0f, 0.0f, -0.2f);
+        delta *= mdir;
+        cam->apply_acceleration(delta, acc);
+    }
+    if (keys[SDL_SCANCODE_S]) {
+        CVec delta(0.0f, 0.0f, 0.2f);
+        delta *= mdir;
+        cam->apply_acceleration(delta, acc);
+    }
+    if (keys[SDL_SCANCODE_A]) {
+        CVec delta(-0.2f, 0.0f, 0.0f);
+        delta *= mdir;
+        cam->apply_acceleration(delta, acc);
+    }
+    if (keys[SDL_SCANCODE_D]) {
+        CVec delta(0.2f, 0.0f, 0.0f);
+        delta *= mdir;
+        cam->apply_acceleration(delta, acc);
+    }
+    if (keys[SDL_SCANCODE_SPACE]) {
+        CVec delta(0.0f, 0.2f, 0.0f);
+        cam->apply_acceleration(delta, acc);
+    }
+    if (keys[SDL_SCANCODE_LCTRL] || keys[SDL_SCANCODE_C]) {
+        CVec delta(0.0f, -0.2f, 0.0f);
+        cam->apply_acceleration(delta, acc);
     }
 
-	if (argc >= 4)
-	{
-		int overbrightBits = atoi(argv[3]);
+    cam->apply_speed(acc);
+    cam->apply_friction(acc);
 
-		if (overbrightBits < 0 || overbrightBits > 8)
-		{
-			cerr << argv[0] << ": overbright bits: allowed range is 0-8" << endl;
-			return 1;
-		}
+    CMat mat;
+    MatTrans(mat, -cam->x, -cam->y, -cam->z);
+    return mat * mdir;
+}
 
-		CLightmapTex::SetOverbrightBits(overbrightBits);
-	}
+void loop(const CBspQ3& bsp, const Render& render)
+{
+    float yaw = 0.0f, pitch = 0.0f, roll = 0.0f;
+    Physics cam;
 
-    SDL_Init(SDL_INIT_NOPARACHUTE);
+    SDL_SetRelativeMouseMode(SDL_TRUE);
 
-    try
-    {
-		Uint32 mticks = SDL_GetTicks();
+    bool done = false;
+    while (!done) {
+        process_events(&done, &yaw, &pitch, &roll);
+        CMat mdir;
+        MatYRot(mdir, yaw);
+        MatXRot(mdir, pitch);
+        MatZRot(mdir, roll);
+
+        float acc = step();
+        CMat mat = physics(acc, mdir, &cam);
+
+        render.new_frame();
+        glLoadMatrixf(mat.GetMatrix());
+        CFrustum frustum;
+        bsp.Render(cam, frustum);
+        render.end_frame();
+    }
+
+    printf("\n");
+}
+
+int main(int argc, char* argv[])
+{
+    if (argc < 3) {
+        std::cerr << "Usage: " << argv[0] <<
+            " <path> <map> [<overbright bits>]" << std::endl;
+        return 1;
+    }
+    if (argc >= 4) {
+        int overbrightBits = atoi(argv[3]);
+        if (overbrightBits < 0 || overbrightBits > 8) {
+            std::cerr << argv[0] << ": overbright bits: allowed range is 0-8" <<
+                std::endl;
+            return 1;
+        }
+        CLightmapTex::SetOverbrightBits(overbrightBits);
+    }
+
+    SDL_Init(SDL_INIT_EVERYTHING);
+
+    try {
+        Uint32 mticks = SDL_GetTicks();
         PAK3Archive pak(argv[1]);
 
-        CSdlGl render(1280, 800);
-        SDL_WM_GrabInput(SDL_GRAB_ON);
+        Render render(1280, 800);
 
         std::string filename = "maps/";
         filename += argv[2];
         filename += ".bsp";
-
         CBspQ3 bsp(filename.c_str(), pak);
 
-        cout << "Init: " << std::fixed << std::setprecision(2) <<
-            ((SDL_GetTicks() - mticks) / 1000.0f) << " sec" << endl;
-
-        Loop(bsp, render);
+        std::printf("Init: %0.2f sec\n", (SDL_GetTicks() - mticks) / 1000.0f);
+        loop(bsp, render);
     }
-    catch (const QException &e)
-    {
-        cerr << argv[0] << ": Error: " << e.what() << endl;
+    catch (const QException& e) {
+        std::cerr << argv[0] << ": Error: " << e.what() << std::endl;
         return 1;
     }
-    catch (...)
-    {
-        cerr << argv[0] << ": Error: Unknown exception" << endl;
+    catch (...) {
+        std::cerr << argv[0] << ": Error: Unknown exception" << std::endl;
         return 1;
     }
 
