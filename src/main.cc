@@ -337,7 +337,6 @@ void Loop(CBspQ3 &bsp, CSdlGl &render)
         MatYRot(mdir, yaw);
         MatXRot(mdir, pitch);
 
-        int button = SDL_GetMouseState(0, 0);
         Uint8 *keys = SDL_GetKeyState(0);
 
         if (keys[SDLK_SPACE])
