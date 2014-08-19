@@ -1,7 +1,8 @@
 #ifndef IBSP46__H
 #define IBSP46__H
 
-#include "types.h"
+#include <cstdint>
+
 #include "ibsp.h"
 
 const uint32_t g_ibsp46Version = 46;

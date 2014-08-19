@@ -1,7 +1,7 @@
 #ifndef IBSP__H
 #define IBSP__H
 
-#include "types.h"
+#include <cstdint>
 
 const char g_ibspMagic[4] = { 'I', 'B', 'S', 'P' };
 
