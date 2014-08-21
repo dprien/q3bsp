@@ -1,7 +1,7 @@
 CXXFLAGS =\
  -std=c++1y\
  -pipe\
- -fstrict-aliasing\
+ -fno-strict-aliasing\
  -fno-common\
  -O2\
  -g\

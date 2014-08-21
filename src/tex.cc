@@ -11,16 +11,15 @@
 CImageTex::CImageTex(const char *filename, const PAK3Archive &pak)
     : m_pixels(0)
 {
-    uint64_t len;
-    auto uptr = pak.read_file(filename, &len);
-    uint8_t *data = uptr.get();
-
-    if (!data)
+    auto maybe_data = pak.read_file(filename);
+    if (!maybe_data) {
         throwf<QException>("%s: Couldn't open file from ZIP archive", filename);
+    }
+    auto data = maybe_data.value();
 
     try
     {
-        Magick::Blob blob(data, len);
+        Magick::Blob blob(data.data(), data.size());
         Magick::Image img(blob);
 
         img.type(Magick::TrueColorType);

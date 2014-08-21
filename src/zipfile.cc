@@ -28,8 +28,7 @@ bool ZIPFile::file_exists(const char* filename) const
     return zip_name_locate(m_archive, filename, ZIP_FL_NOCASE) != -1;
 }
 
-std::unique_ptr<std::uint8_t[]> ZIPFile::read_file(const char* filename,
-        std::uint64_t* out_size) const
+ZIPFile::optional_data_t ZIPFile::read_file(const char* filename) const
 {
     struct zip_stat stat;
     if (zip_stat(m_archive, filename, ZIP_FL_NOCASE, &stat) == -1) {
@@ -41,11 +40,11 @@ std::unique_ptr<std::uint8_t[]> ZIPFile::read_file(const char* filename,
 
     struct zip_file* zf = zip_fopen(m_archive, filename, 0);
     if (zf == nullptr) {
-        return nullptr;
+        return optional_data_t();
     }
 
-    auto buf = std::make_unique<std::uint8_t[]>(stat.size);
-    zip_int64_t nbytes_read = zip_fread(zf, buf.get(), stat.size);
+    data_t v(stat.size);
+    zip_int64_t nbytes_read = zip_fread(zf, v.data(), stat.size);
     if (nbytes_read == -1) {
         throwf("ZIPFile: zip_fread: %s: %s", filename, zip_file_strerror(zf));
     }
@@ -55,11 +54,7 @@ std::unique_ptr<std::uint8_t[]> ZIPFile::read_file(const char* filename,
     }
 
     zip_fclose(zf);
-
-    if (out_size != nullptr) {
-        *out_size = stat.size;
-    }
-    return buf;
+    return v;
 }
 
 PAK3Archive::PAK3Archive(const char* path, const int max_pak_files)
@@ -93,8 +88,7 @@ PAK3Archive::~PAK3Archive() noexcept
     }
 }
 
-std::unique_ptr<std::uint8_t[]> PAK3Archive::read_file(const char* filename,
-        std::uint64_t* out_size) const
+PAK3Archive::optional_data_t PAK3Archive::read_file(const char* filename) const
 {
     const ZIPFile* best = nullptr;
     for (auto&& p : m_zip_files) {
@@ -103,10 +97,10 @@ std::unique_ptr<std::uint8_t[]> PAK3Archive::read_file(const char* filename,
         }
     }
     if (best == nullptr) {
-        return nullptr;
+        return optional_data_t();
     }
 
     std::cerr << "PAK3Archive: reading: " << best->archive_filename << ": " <<
         filename << std::endl;
-    return best->read_file(filename, out_size);
+    return best->read_file(filename);
 }

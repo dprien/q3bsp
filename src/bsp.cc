@@ -306,19 +306,18 @@ void CBspQ3::Render(const CFrustum &frustum) const
 // =================================================
 CBspQ3::CBspQ3(const char *filename, const PAK3Archive &pak)
 {
-    auto uptr = pak.read_file(filename);
-    m_bspData = uptr.release(); // FIXME: Leak!
-
-    if (!m_bspData)
+    auto maybe_data = pak.read_file(filename);
+    if (!maybe_data) {
         throwf<QException>("%s: Couldn't open file from ZIP archive", filename);
+    }
+    m_bspData = maybe_data.value();
 
-    DHeader_t *header = reinterpret_cast<DHeader_t *>(m_bspData);
+    DHeader_t *header = reinterpret_cast<DHeader_t *>(m_bspData.data());
 
     for (size_t i = 0; i < sizeof(g_ibspMagic); ++i)
     {
         if (header->magic[i] != g_ibspMagic[i])
         {
-            delete [] m_bspData;
             throwf<QException>("%s: Unsupported file format", filename);
         }
     }
@@ -329,60 +328,70 @@ CBspQ3::CBspQ3(const char *filename, const PAK3Archive &pak)
 
     // Directory
     // =================================================
-    DDir_t *dir = reinterpret_cast<DDir_t *>(m_bspData + sizeof(DHeader_t));
+    DDir_t *dir = reinterpret_cast<DDir_t *>(m_bspData.data() +
+            sizeof(DHeader_t));
 
     // Textures
     // =================================================
     m_nTextures = dir->textures.length / sizeof(DTexture_t);
-    m_textures = reinterpret_cast<DTexture_t *>(m_bspData + dir->textures.offset);
+    m_textures = reinterpret_cast<DTexture_t *>(m_bspData.data() +
+            dir->textures.offset);
 
     LoadTextures(pak);
 
     // Faces
     // =================================================
     m_nFaces = dir->faces.length / sizeof(DFace_t);
-    m_faces = reinterpret_cast<DFace_t *>(m_bspData + dir->faces.offset);
+    m_faces = reinterpret_cast<DFace_t *>(m_bspData.data() + dir->faces.offset);
 
     // Vertices
     // =================================================
     m_nVertices = dir->vertices.length / sizeof(DVertex_t);
-    m_vertices = reinterpret_cast<DVertex_t *>(m_bspData + dir->vertices.offset);
+    m_vertices = reinterpret_cast<DVertex_t *>(m_bspData.data() +
+            dir->vertices.offset);
 
     // Planes
     // =================================================
     m_nPlanes = dir->planes.length / sizeof(DPlane_t);
-    m_planes = reinterpret_cast<DPlane_t *>(m_bspData + dir->planes.offset);
+    m_planes = reinterpret_cast<DPlane_t *>(m_bspData.data() +
+            dir->planes.offset);
 
     // Leaves
     // =================================================
     m_nLeaves = dir->leaves.length / sizeof(DLeaf_t);
-    m_leaves = reinterpret_cast<DLeaf_t *>(m_bspData + dir->leaves.offset);
+    m_leaves = reinterpret_cast<DLeaf_t *>(m_bspData.data() +
+            dir->leaves.offset);
 
     // LeafFaces
     // =================================================
     m_nLeafFaces = dir->leafFaces.length / sizeof(DLeafFace_t);
-    m_leafFaces = reinterpret_cast<DLeafFace_t *>(m_bspData + dir->leafFaces.offset);
+    m_leafFaces = reinterpret_cast<DLeafFace_t *>(m_bspData.data() +
+            dir->leafFaces.offset);
 
     // Nodes
     // =================================================
     m_nNodes = dir->nodes.length / sizeof(DNode_t);
-    m_nodes = reinterpret_cast<DNode_t *>(m_bspData + dir->nodes.offset);
+    m_nodes = reinterpret_cast<DNode_t *>(m_bspData.data() +
+            dir->nodes.offset);
 
     // MeshVerts
     // =================================================
     m_nMeshVerts = dir->meshVerts.length / sizeof(DMeshVert_t);
-    m_meshVerts = reinterpret_cast<DMeshVert_t *>(m_bspData + dir->meshVerts.offset);
+    m_meshVerts = reinterpret_cast<DMeshVert_t *>(m_bspData.data() +
+            dir->meshVerts.offset);
 
     // Lightmaps
     // =================================================
     size_t nLightmaps = dir->lightmaps.length / sizeof(DLightmap_t);
-    DLightmap_t *lightmaps = reinterpret_cast<DLightmap_t *>(m_bspData + dir->lightmaps.offset);
+    DLightmap_t *lightmaps = reinterpret_cast<DLightmap_t *>(m_bspData.data() +
+            dir->lightmaps.offset);
 
     ProcessLightmaps(lightmaps, nLightmaps);
 
     // VisData
     // =================================================
-    m_visData = reinterpret_cast<DVisData_t *>(m_bspData + dir->visData.offset);
+    m_visData = reinterpret_cast<DVisData_t *>(m_bspData.data() +
+            dir->visData.offset);
 
     // =================================================
 
@@ -434,8 +443,6 @@ CBspQ3::CBspQ3(const char *filename, const PAK3Archive &pak)
 
 CBspQ3::~CBspQ3() throw ()
 {
-    delete [] m_bspData;
-
     CTexManager &texMgr = CTexManager::Instance();
 
     for (GlTexId_t::const_iterator p = m_glTexIds.begin(); p != m_glTexIds.end(); ++p)

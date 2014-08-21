@@ -20,7 +20,7 @@ class CBspQ3
 
 	typedef std::vector<int>				IndexList_t;
 
-    uint8_t         *m_bspData;
+    ZIPFile::data_t m_bspData;
 
     size_t          m_nTextures;
     DTexture_t      *m_textures;

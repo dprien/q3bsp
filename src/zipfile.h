@@ -2,14 +2,19 @@
 #define ZIPFILE__H
 
 #include <string>
+#include <vector>
 #include <list>
-#include <memory>
 #include <cstdint>
+#include <experimental/optional>
 
 #include <zip.h>
 
 class ZIPFile
 {
+    public:
+        using data_t = std::vector<uint8_t>;
+        using optional_data_t = std::experimental::optional<data_t>;
+
     private:
         struct zip* m_archive;
 
@@ -24,8 +29,7 @@ class ZIPFile
         void operator=(const ZIPFile&) = delete;
 
         bool file_exists(const char*) const;
-        std::unique_ptr<std::uint8_t[]> read_file(const char*,
-                std::uint64_t* = nullptr) const;
+        optional_data_t read_file(const char*) const;
 };
 
 // =======================================================================
@@ -33,8 +37,12 @@ class ZIPFile
 
 class PAK3Archive
 {
+    public:
+        using data_t = std::vector<uint8_t>;
+        using optional_data_t = std::experimental::optional<data_t>;
+
     private:
-        typedef std::list<ZIPFile*> zip_list_t;
+        using zip_list_t = std::list<ZIPFile*>;
 
         const int   m_max_pak_files;
         zip_list_t  m_zip_files;
@@ -46,8 +54,7 @@ class PAK3Archive
         PAK3Archive(const PAK3Archive&) = delete;
         void operator=(const PAK3Archive&) = delete;
 
-        std::unique_ptr<std::uint8_t[]> read_file(const char*,
-                std::uint64_t* = nullptr) const;
+        optional_data_t read_file(const char*) const;
 };
 
 #endif
