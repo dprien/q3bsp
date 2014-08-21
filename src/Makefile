@@ -1,5 +1,5 @@
 CXXFLAGS =\
- -std=c++1y\
+ -std=c++14\
  -pipe\
  -fno-strict-aliasing\
  -fno-common\

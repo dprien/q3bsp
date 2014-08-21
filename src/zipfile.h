@@ -15,13 +15,8 @@ class ZIPFile
         using data_t = std::vector<uint8_t>;
         using optional_data_t = std::experimental::optional<data_t>;
 
-    private:
-        struct zip* m_archive;
-
-    public:
         const std::string archive_filename;
 
-    public:
         explicit ZIPFile(const char*);
         ~ZIPFile() noexcept;
 
@@ -30,6 +25,9 @@ class ZIPFile
 
         bool file_exists(const char*) const;
         optional_data_t read_file(const char*) const;
+
+    private:
+        struct zip* m_archive;
 };
 
 // =======================================================================
@@ -38,23 +36,21 @@ class ZIPFile
 class PAK3Archive
 {
     public:
-        using data_t = std::vector<uint8_t>;
-        using optional_data_t = std::experimental::optional<data_t>;
+        using data_t = ZIPFile::data_t;
+        using optional_data_t = ZIPFile::optional_data_t;
 
-    private:
-        using zip_list_t = std::list<ZIPFile*>;
-
-        const int   m_max_pak_files;
-        zip_list_t  m_zip_files;
-
-    public:
         explicit PAK3Archive(const char*, const int = 10);
-        ~PAK3Archive() noexcept;
 
         PAK3Archive(const PAK3Archive&) = delete;
         void operator=(const PAK3Archive&) = delete;
 
         optional_data_t read_file(const char*) const;
+
+    private:
+        using zip_list_t = std::list<ZIPFile>;
+
+        const int   m_max_pak_files;
+        zip_list_t  m_zip_files;
 };
 
 #endif

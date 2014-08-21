@@ -68,8 +68,7 @@ PAK3Archive::PAK3Archive(const char* path, const int max_pak_files)
         std::ostringstream filename;
         filename << cpath << "/pak" << i << ".pk3";
         try {
-            ZIPFile* zip = new ZIPFile(filename.str().c_str());
-            m_zip_files.push_back(zip);
+            m_zip_files.emplace_back(filename.str().c_str());
             std::cerr << "PAK3Archive: Using " << filename.str() << std::endl;
         }
         catch (const QException&) {
@@ -81,19 +80,12 @@ PAK3Archive::PAK3Archive(const char* path, const int max_pak_files)
     }
 }
 
-PAK3Archive::~PAK3Archive() noexcept
-{
-    for (auto&& p : m_zip_files) {
-        delete p;
-    }
-}
-
 PAK3Archive::optional_data_t PAK3Archive::read_file(const char* filename) const
 {
     const ZIPFile* best = nullptr;
     for (auto&& p : m_zip_files) {
-        if (p->file_exists(filename)) {
-            best = p;
+        if (p.file_exists(filename)) {
+            best = &p;
         }
     }
     if (best == nullptr) {
