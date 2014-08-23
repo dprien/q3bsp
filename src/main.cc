@@ -19,18 +19,20 @@
 
 class Render
 {
-    private:
-        int             m_width;
-        int             m_height;
-        SDL_Window*     m_window;
-        SDL_GLContext   m_context;
-
     public:
         Render(int, int);
         ~Render() noexcept;
 
         void new_frame() const;
         void end_frame() const;
+
+        void resize(int, int);
+
+    private:
+        int             m_width;
+        int             m_height;
+        SDL_Window*     m_window;
+        SDL_GLContext   m_context;
 };
 
 Render::Render(const int width, const int height)
@@ -42,7 +44,7 @@ Render::Render(const int width, const int height)
             SDL_WINDOWPOS_UNDEFINED,
             m_width,
             m_height,
-            SDL_WINDOW_OPENGL);
+            SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE);
     if (!m_window) {
         throwf("SDL_CreateWindow: %s", SDL_GetError());
     }
@@ -78,19 +80,23 @@ Render::Render(const int width, const int height)
     glEnable(GL_TEXTURE_2D);
     glHint(GL_PERSPECTIVE_CORRECTION_HINT, GL_NICEST);
 
-    glViewport(0, 0, m_width, m_height);
-
-    glMatrixMode(GL_PROJECTION);
-    glLoadIdentity();
-    gluPerspective(60.0, m_width / double(m_height), 4.0, 15000.0);
-
-    glMatrixMode(GL_MODELVIEW);
-    glLoadIdentity();
+    resize(m_width, m_height);
 }
 
 Render::~Render() noexcept
 {
     SDL_GL_DeleteContext(m_context);
+}
+
+void Render::resize(int width, int height)
+{
+    m_width = width;
+    m_height = height;
+
+    glViewport(0, 0, m_width, m_height);
+    glMatrixMode(GL_PROJECTION);
+    glLoadIdentity();
+    gluPerspective(60.0, m_width / double(m_height), 4.0, 15000.0);
 }
 
 void Render::new_frame() const
@@ -201,13 +207,22 @@ class FrameStats
         }
 };
 
-void process_events(bool* done, float* yaw, float* pitch, float*)
+void process_events(bool* done, Render* render, float* yaw, float* pitch, float*)
 {
     SDL_Event event;
     while (SDL_PollEvent(&event)) {
         switch (event.type) {
             case SDL_QUIT: {
                 *done = true;
+                break;
+            }
+            case SDL_WINDOWEVENT: {
+                switch (event.window.event) {
+                    case SDL_WINDOWEVENT_RESIZED: {
+                        render->resize(event.window.data1, event.window.data2);
+                        break;
+                    }
+                }
                 break;
             }
             case SDL_KEYUP: {
@@ -320,7 +335,7 @@ CMat physics(const float acc, const CMat& mdir, Physics* cam)
     return mat * mdir;
 }
 
-void loop(const CBspQ3& bsp, const Render& render)
+void loop(Render& render, const CBspQ3& bsp)
 {
     float yaw = 0.0f, pitch = 0.0f, roll = 0.0f;
     Physics cam;
@@ -329,16 +344,18 @@ void loop(const CBspQ3& bsp, const Render& render)
 
     bool done = false;
     while (!done) {
-        process_events(&done, &yaw, &pitch, &roll);
+        float acc = step();
+
+        process_events(&done, &render, &yaw, &pitch, &roll);
         CMat mdir;
         MatYRot(mdir, yaw);
         MatXRot(mdir, pitch);
         MatZRot(mdir, roll);
-
-        float acc = step();
         CMat mat = physics(acc, mdir, &cam);
 
         render.new_frame();
+        glMatrixMode(GL_MODELVIEW);
+        glLoadIdentity();
         glLoadMatrixf(mat.GetMatrix());
         CFrustum frustum;
         bsp.Render(cam, frustum);
@@ -371,7 +388,7 @@ int main(int argc, char* argv[])
         Uint32 mticks = SDL_GetTicks();
         PAK3Archive pak(argv[1]);
 
-        Render render(1280, 800);
+        Render render(1440, 900);
 
         std::string filename = "maps/";
         filename += argv[2];
@@ -379,7 +396,7 @@ int main(int argc, char* argv[])
         CBspQ3 bsp(filename.c_str(), pak);
 
         std::printf("Init: %0.2f sec\n", (SDL_GetTicks() - mticks) / 1000.0f);
-        loop(bsp, render);
+        loop(render, bsp);
     }
     catch (const QException& e) {
         std::cerr << argv[0] << ": Error: " << e.what() << std::endl;
