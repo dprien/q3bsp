@@ -6,6 +6,30 @@
 #include "exception.h"
 #include "archive.h"
 
+namespace
+{
+    class ZIPFile
+    {
+        public:
+            ZIPFile(struct zip* z, const char* filename, zip_flags_t flags)
+                : handle(zip_fopen(z, filename, flags))
+            {}
+
+            ~ZIPFile() noexcept
+            {
+                if (handle != nullptr) {
+                    zip_fclose(handle);
+                }
+            }
+
+            ZIPFile(const ZIPFile&) = delete;
+            void operator=(const ZIPFile&) = delete;
+
+        public:
+            struct zip_file* const handle;
+    };
+}
+
 ZIPArchive::ZIPArchive(const char* filename)
     : archive_filename(filename)
 {
@@ -38,22 +62,22 @@ ZIPArchive::optional_data_t ZIPArchive::read_file(const char* filename) const
         throwf("ZIPArchive: zip_stat: %s: ZIP_STAT_NAME not set", filename);
     }
 
-    struct zip_file* zf = zip_fopen(m_archive, filename, 0);
-    if (zf == nullptr) {
+    ZIPFile zf(m_archive, filename, 0);
+    if (zf.handle == nullptr) {
         return optional_data_t();
     }
 
     data_t v(stat.size);
-    zip_int64_t nbytes_read = zip_fread(zf, v.data(), stat.size);
+    zip_int64_t nbytes_read = zip_fread(zf.handle, v.data(), stat.size);
     if (nbytes_read == -1) {
-        throwf("ZIPArchive: zip_fread: %s: %s", filename, zip_file_strerror(zf));
+        throwf("ZIPArchive: zip_fread: %s: %s", filename,
+                zip_file_strerror(zf.handle));
     }
     if (static_cast<zip_uint64_t>(nbytes_read) != stat.size) {
         throwf("ZIPArchive: zip_fread: %s: Read %d bytes, expected %lu bytes",
                 filename, nbytes_read, stat.size);
     }
 
-    zip_fclose(zf);
     return v;
 }
 
