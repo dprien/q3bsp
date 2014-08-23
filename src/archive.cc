@@ -1,12 +1,12 @@
 #include <iostream>
 #include <sstream>
 
-#include "zipfile.h"
-#include "exception.h"
-
 #include <zip.h>
 
-ZIPFile::ZIPFile(const char* filename)
+#include "exception.h"
+#include "archive.h"
+
+ZIPArchive::ZIPArchive(const char* filename)
     : archive_filename(filename)
 {
     int r;
@@ -14,28 +14,28 @@ ZIPFile::ZIPFile(const char* filename)
     if (m_archive == nullptr) {
         char buf[1024];
         zip_error_to_str(buf, sizeof(buf), r, errno);
-        throwf("ZIPFile: zip_open: %s: %s", filename, buf);
+        throwf("ZIPArchive: zip_open: %s: %s", filename, buf);
     }
 }
 
-ZIPFile::~ZIPFile() noexcept
+ZIPArchive::~ZIPArchive() noexcept
 {
     zip_close(m_archive);
 }
 
-bool ZIPFile::file_exists(const char* filename) const
+bool ZIPArchive::file_exists(const char* filename) const
 {
     return zip_name_locate(m_archive, filename, ZIP_FL_NOCASE) != -1;
 }
 
-ZIPFile::optional_data_t ZIPFile::read_file(const char* filename) const
+ZIPArchive::optional_data_t ZIPArchive::read_file(const char* filename) const
 {
     struct zip_stat stat;
     if (zip_stat(m_archive, filename, ZIP_FL_NOCASE, &stat) == -1) {
-        throwf("ZIPFile: zip_stat: %s: %s", filename, zip_strerror(m_archive));
+        throwf("ZIPArchive: zip_stat: %s: %s", filename, zip_strerror(m_archive));
     }
     if ((stat.valid & ZIP_STAT_NAME) == 0) {
-        throwf("ZIPFile: zip_stat: %s: ZIP_STAT_NAME not set", filename);
+        throwf("ZIPArchive: zip_stat: %s: ZIP_STAT_NAME not set", filename);
     }
 
     struct zip_file* zf = zip_fopen(m_archive, filename, 0);
@@ -46,10 +46,10 @@ ZIPFile::optional_data_t ZIPFile::read_file(const char* filename) const
     data_t v(stat.size);
     zip_int64_t nbytes_read = zip_fread(zf, v.data(), stat.size);
     if (nbytes_read == -1) {
-        throwf("ZIPFile: zip_fread: %s: %s", filename, zip_file_strerror(zf));
+        throwf("ZIPArchive: zip_fread: %s: %s", filename, zip_file_strerror(zf));
     }
     if (static_cast<zip_uint64_t>(nbytes_read) != stat.size) {
-        throwf("ZIPFile: zip_fread: %s: Read %d bytes, expected %lu bytes",
+        throwf("ZIPArchive: zip_fread: %s: Read %d bytes, expected %lu bytes",
                 filename, nbytes_read, stat.size);
     }
 
@@ -58,13 +58,12 @@ ZIPFile::optional_data_t ZIPFile::read_file(const char* filename) const
 }
 
 PAK3Archive::PAK3Archive(const char* path, const int max_pak_files)
-    : m_max_pak_files(max_pak_files)
 {
     std::string cpath(path);
     if (cpath.back() == '/')
         cpath.pop_back();
 
-    for (int i = 0; i < m_max_pak_files; ++i) {
+    for (int i = 0; i < max_pak_files; ++i) {
         std::ostringstream filename;
         filename << cpath << "/pak" << i << ".pk3";
         try {
@@ -82,7 +81,7 @@ PAK3Archive::PAK3Archive(const char* path, const int max_pak_files)
 
 PAK3Archive::optional_data_t PAK3Archive::read_file(const char* filename) const
 {
-    const ZIPFile* best = nullptr;
+    const ZIPArchive* best = nullptr;
     for (auto&& p : m_zip_files) {
         if (p.file_exists(filename)) {
             best = &p;

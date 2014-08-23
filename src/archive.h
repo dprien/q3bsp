@@ -9,7 +9,7 @@
 
 #include <zip.h>
 
-class ZIPFile
+class ZIPArchive
 {
     public:
         using data_t = std::vector<uint8_t>;
@@ -17,11 +17,11 @@ class ZIPFile
 
         const std::string archive_filename;
 
-        explicit ZIPFile(const char*);
-        ~ZIPFile() noexcept;
+        explicit ZIPArchive(const char*);
+        ~ZIPArchive() noexcept;
 
-        ZIPFile(const ZIPFile&) = delete;
-        void operator=(const ZIPFile&) = delete;
+        ZIPArchive(const ZIPArchive&) = delete;
+        void operator=(const ZIPArchive&) = delete;
 
         bool file_exists(const char*) const;
         optional_data_t read_file(const char*) const;
@@ -36,8 +36,8 @@ class ZIPFile
 class PAK3Archive
 {
     public:
-        using data_t = ZIPFile::data_t;
-        using optional_data_t = ZIPFile::optional_data_t;
+        using data_t = ZIPArchive::data_t;
+        using optional_data_t = ZIPArchive::optional_data_t;
 
         explicit PAK3Archive(const char*, const int = 10);
 
@@ -47,10 +47,7 @@ class PAK3Archive
         optional_data_t read_file(const char*) const;
 
     private:
-        using zip_list_t = std::list<ZIPFile>;
-
-        const int   m_max_pak_files;
-        zip_list_t  m_zip_files;
+        std::list<ZIPArchive> m_zip_files;
 };
 
 #endif

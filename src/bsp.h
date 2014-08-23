@@ -9,7 +9,7 @@
 
 #include "ibsp46.h"
 #include "vec.h"
-#include "zipfile.h"
+#include "archive.h"
 #include "bezier.h"
 #include "frustum.h"
 
@@ -20,7 +20,7 @@ class CBspQ3
 
 	typedef std::vector<int>				IndexList_t;
 
-    ZIPFile::data_t m_bspData;
+    std::vector<uint8_t> m_bspData;
 
     size_t          m_nTextures;
     DTexture_t      *m_textures;

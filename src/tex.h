@@ -5,7 +5,7 @@
 #include <cstdint>
 
 #include "ibsp46.h"
-#include "zipfile.h"
+#include "archive.h"
 
 class ITexture
 {

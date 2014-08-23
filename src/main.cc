@@ -13,7 +13,7 @@
 #include "exception.h"
 #include "bsp.h"
 #include "vec.h"
-#include "zipfile.h"
+#include "archive.h"
 #include "tex.h"
 #include "frustum.h"
 
