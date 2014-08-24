@@ -1,76 +1,37 @@
+#include <boost/filesystem.hpp>
+
 #include <GL/gl.h>
 #include <GL/glu.h>
-
-#include "Magick++.h"
 
 #include "tex.h"
 #include "exception.h"
 
 // public:
 // =================================================
-CImageTex::CImageTex(const char *filename, const PAK3Archive &pak)
-    : m_pixels(0)
+CImageTex::CImageTex(const char* filename, const PAK3Archive& pak)
 {
-    auto maybe_data = pak.read_file(filename);
-    if (!maybe_data) {
-        throwf<QException>("%s: Couldn't open file from ZIP archive", filename);
+    auto data = pak.read_file(filename);
+    if (!data) {
+        throwf("%s: Couldn't open file from ZIP archive", filename);
     }
-    auto data = maybe_data.value();
 
-    try
-    {
-        Magick::Blob blob(data.data(), data.size());
-        Magick::Image img(blob);
-
-        img.type(Magick::TrueColorType);
-
-        m_width  = img.columns();
-        m_height = img.rows();
-
-        const Magick::PixelPacket *pixels = img.getConstPixels(0, 0, m_width, m_height);
-        m_pixels = new uint8_t[m_width * m_height * 4];
-
-        const Magick::PixelPacket *p = pixels;
-        uint8_t *q = m_pixels;
-
-        for (int j = 0; j < m_height; ++j)
-        {
-            for (int i = 0; i < m_width; ++i, ++p, q += 4)
-            {
-                q[0] = p->red;
-                q[1] = p->green;
-                q[2] = p->blue;
-                q[3] = p->opacity;
-            }
-        }
-    }
-    catch (const Magick::Exception &e)
-    {
-        if (m_pixels)
-            delete [] m_pixels;
-
-        throwf<QException>("%s: ImageMagick: %s", filename, e.what());
-    }
-}
-
-CImageTex::~CImageTex() throw ()
-{
-    delete [] m_pixels;
+    boost::filesystem::path path(filename);
+    m_image = decode_by_extension(data.value(), path.extension().string());
 }
 
 int CImageTex::GetWidth() const
 {
-    return m_width;
+    return m_image.get_width();
 }
 
 int CImageTex::GetHeight() const
 {
-    return m_height;
+    return m_image.get_height();
 }
 
 const uint8_t *CImageTex::GetPixels() const
 {
-    return m_pixels;
+    return reinterpret_cast<const uint8_t*>(m_image.get_pixels().data());
 }
 
 // =======================================================================

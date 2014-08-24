@@ -6,6 +6,7 @@
 
 #include "ibsp46.h"
 #include "archive.h"
+#include "image.h"
 
 class ITexture
 {
@@ -22,17 +23,13 @@ public:
 
 class CImageTex : public ITexture
 {
-    int     m_width;
-    int     m_height;
-
-    uint8_t *m_pixels;
+    Image m_image;
 
     CImageTex(CImageTex const &);
     void operator = (CImageTex const &);
 
 public:
     explicit CImageTex(const char *, const PAK3Archive &);
-    ~CImageTex() throw ();
 
     int GetWidth() const;
     int GetHeight() const;

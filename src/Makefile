@@ -10,22 +10,24 @@ CXXFLAGS =\
  -Wextra
 
 INCLUDES =\
- `sdl2-config --cflags`\
- `Magick++-config --cppflags`
+ `sdl2-config --cflags`
 
 LDFLAGS =\
  -Wl,--enable-new-dtags\
  -Wl,--sort-common
 
 LIBS =\
+ -lboost_system\
+ -lboost_filesystem\
  -lzip\
  -lGL\
  -lGLU\
  `sdl2-config --libs`\
- `Magick++-config --libs`
+ -lSDL2_image
 
 CXXSRCS =\
  main.cc\
+ image.cc\
  bezier.cc\
  bsp.cc\
  frustum.cc\
