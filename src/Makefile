@@ -56,3 +56,14 @@ clean:
 
 # DEPENDENCIES
 # ===========================================================================
+main.o: main.cc exception.h bsp.h ibsp46.h ibsp.h vec.h archive.h \
+ bezier.h frustum.h tex.h image.h time.h
+image.o: image.cc image.h exception.h
+time.o: time.cc time.h
+bezier.o: bezier.cc bezier.h ibsp46.h ibsp.h
+bsp.o: bsp.cc bsp.h ibsp46.h ibsp.h vec.h archive.h bezier.h frustum.h \
+ exception.h tex.h image.h
+frustum.o: frustum.cc frustum.h vec.h
+tex.o: tex.cc tex.h ibsp46.h ibsp.h archive.h image.h exception.h
+vec.o: vec.cc vec.h
+archive.o: archive.cc exception.h archive.h
