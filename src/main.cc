@@ -96,7 +96,7 @@ void Render::resize(int width, int height)
     glViewport(0, 0, m_width, m_height);
     glMatrixMode(GL_PROJECTION);
     glLoadIdentity();
-    gluPerspective(60.0, m_width / double(m_height), 4.0, 15000.0);
+    gluPerspective(75.0, m_width / double(m_height), 4.0, 15000.0);
 }
 
 void Render::new_frame() const
@@ -109,34 +109,21 @@ void Render::end_frame() const
     SDL_GL_SwapWindow(m_window);
 }
 
-class Physics : public CVec
+class Simulation
 {
-    private:
-        CVec m_speed;
-
     public:
-        Physics(const float px = 0.0f, const float py = 0.0f,
-                const float pz = 0.0f)
-            : CVec(px, py, pz)
-        {}
+        CVec speed;
+        CVec position;
 
-        void apply_acceleration(const CVec& dir, const float)
+        void step(CVec dir, const float dt)
         {
-            m_speed += dir;
-            const float m = m_speed.Magnitude();
+            const float m = dir.Magnitude();
             if (m > 1.0f) {
-                m_speed *= 1.0f / m;
+                dir *= 1.0f / m;
             }
-        }
-
-        void apply_friction(const float /* acc */)
-        {
-            m_speed *= 0.85f;
-        }
-
-        void apply_speed(const float acc)
-        {
-            *this += m_speed * acc;
+            speed += dir * dt;
+            speed *= std::pow(0.87f, dt);
+            position += speed * dt;
         }
 };
 
@@ -178,18 +165,17 @@ void process_events(bool* done, Render* render, float* yaw, float* pitch, float*
                 int cur_mode = SDL_GetRelativeMouseMode();
                 if (cur_mode != old_mode) {
                     // After a switch, SDL2 generates a spurious
-                    // MOUSEMOTION event with *huge* deltas,
-                    // that should be ignored.
+                    // MOUSEMOTION event with *huge* deltas.
                 }
                 else if (cur_mode) {
                     *yaw += std::fmod(
-                            event.motion.xrel / 7.0f,
+                            event.motion.xrel / 6.0f,
                             360.0f);
                     *pitch = std::min(
                             90.0f,
                             std::max(
                                 -90.0f,
-                                *pitch + event.motion.yrel / 7.0f));
+                                *pitch + event.motion.yrel / 6.0f));
                 }
                 old_mode = cur_mode;
                 break;
@@ -205,7 +191,7 @@ float step()
     static std::uint64_t last_update = 0;
 
     static TickQueue tq;
-    float delta = tq.new_frame(75) * 60.0f;
+    float dt = tq.new_frame(75);
 
     ++total_frames;
     std::uint64_t curr_ticks = get_ticks() - start_ticks;
@@ -223,73 +209,62 @@ float step()
         last_update = get_ticks();
     }
 
-    return delta;
+    return dt;
 }
 
-CMat physics(const float acc, const CMat& mdir, Physics* cam)
+CMat simulate(const float dt, const CMat& mdir, Simulation* sim)
 {
     const Uint8* keys = SDL_GetKeyboardState(nullptr);
+    CVec movement;
     if (keys[SDL_SCANCODE_W]) {
-        CVec delta(0.0f, 0.0f, -0.2f);
-        delta *= mdir;
-        cam->apply_acceleration(delta, acc);
+        movement += CVec(0.0f, 0.0f, -1.0f) * mdir;
     }
     if (keys[SDL_SCANCODE_S]) {
-        CVec delta(0.0f, 0.0f, 0.2f);
-        delta *= mdir;
-        cam->apply_acceleration(delta, acc);
+        movement += CVec(0.0f, 0.0f, 1.0f) * mdir;
     }
     if (keys[SDL_SCANCODE_A]) {
-        CVec delta(-0.2f, 0.0f, 0.0f);
-        delta *= mdir;
-        cam->apply_acceleration(delta, acc);
+        movement += CVec(-1.0f, 0.0f, 0.0f) * mdir;
     }
     if (keys[SDL_SCANCODE_D]) {
-        CVec delta(0.2f, 0.0f, 0.0f);
-        delta *= mdir;
-        cam->apply_acceleration(delta, acc);
+        movement += CVec(1.0f, 0.0f, 0.0f) * mdir;
     }
     if (keys[SDL_SCANCODE_SPACE]) {
-        CVec delta(0.0f, 0.2f, 0.0f);
-        cam->apply_acceleration(delta, acc);
+        movement += CVec(0.0f, 1.0f, 0.0f);
     }
     if (keys[SDL_SCANCODE_LCTRL] || keys[SDL_SCANCODE_C]) {
-        CVec delta(0.0f, -0.2f, 0.0f);
-        cam->apply_acceleration(delta, acc);
+        movement += CVec(0.0f, -1.0f, 0.0f);
     }
 
-    cam->apply_speed(acc);
-    cam->apply_friction(acc);
-
+    sim->step(movement, dt * 50.0f);
     CMat mat;
-    MatTrans(mat, -cam->x, -cam->y, -cam->z);
+    MatTrans(mat, -sim->position.x, -sim->position.y, -sim->position.z);
     return mat * mdir;
 }
 
 void loop(Render& render, const CBspQ3& bsp)
 {
     float yaw = 0.0f, pitch = 0.0f, roll = 0.0f;
-    Physics cam;
+    Simulation sim;
 
     SDL_SetRelativeMouseMode(SDL_TRUE);
 
     bool done = false;
     while (!done) {
-        float acc = step();
+        float dt = step();
 
         process_events(&done, &render, &yaw, &pitch, &roll);
         CMat mdir;
         MatYRot(mdir, yaw);
         MatXRot(mdir, pitch);
         MatZRot(mdir, roll);
-        CMat mat = physics(acc, mdir, &cam);
+        CMat mat = simulate(dt, mdir, &sim);
 
         render.new_frame();
         glMatrixMode(GL_MODELVIEW);
         glLoadIdentity();
         glLoadMatrixf(mat.GetMatrix());
         CFrustum frustum;
-        bsp.Render(cam, frustum);
+        bsp.Render(sim.position, frustum);
         render.end_frame();
     }
 
