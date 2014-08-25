@@ -1,6 +1,5 @@
 #include <iostream>
 #include <string>
-#include <deque>
 #include <algorithm>
 #include <cstdio>
 #include <cmath>
@@ -16,6 +15,7 @@
 #include "archive.h"
 #include "tex.h"
 #include "frustum.h"
+#include "time.h"
 
 class Render
 {
@@ -109,36 +109,6 @@ void Render::end_frame() const
     SDL_GL_SwapWindow(m_window);
 }
 
-class FrameTimer
-{
-    private:
-        Uint32  m_start_ticks;
-        Uint32  m_total_ticks;
-        Uint32  m_frame_ticks;
-
-    public:
-        FrameTimer()
-            : m_start_ticks(SDL_GetTicks()), m_total_ticks(0), m_frame_ticks(0)
-        {}
-
-        Uint32 get_total_ticks() const
-        {
-            return m_total_ticks;
-        }
-
-        Uint32 get_frame_ticks() const
-        {
-            return m_frame_ticks;
-        }
-
-        void update()
-        {
-            Uint32 cur_ticks = SDL_GetTicks() - m_start_ticks;
-            m_frame_ticks = cur_ticks - m_total_ticks;
-            m_total_ticks = cur_ticks;
-        }
-};
-
 class Physics : public CVec
 {
     private:
@@ -167,43 +137,6 @@ class Physics : public CVec
         void apply_speed(const float acc)
         {
             *this += m_speed * acc;
-        }
-};
-
-class FrameStats
-{
-    typedef std::deque<Uint32> tick_queue_t;
-
-    const Uint32    m_max_ticks;
-    tick_queue_t    m_tick_queue;
-    Uint32          m_ticks;
-    unsigned long   m_frames;
-
-    public:
-        FrameStats(const Uint32 max_ticks = 1000)
-            : m_max_ticks(max_ticks), m_ticks(0), m_frames(0)
-        {}
-
-        Uint32 get_ticks() const
-        {
-            return m_ticks;
-        };
-
-        unsigned long get_frames() const
-        {
-            return m_frames;
-        }
-
-        void new_frame(const Uint32 ticks)
-        {
-            m_tick_queue.push_back(ticks);
-            m_ticks += ticks;
-            ++m_frames;
-            while (m_ticks > m_max_ticks) {
-                m_ticks -= m_tick_queue.front();
-                m_tick_queue.pop_front();
-                --m_frames;
-            }
         }
 };
 
@@ -267,32 +200,30 @@ void process_events(bool* done, Render* render, float* yaw, float* pitch, float*
 
 float step()
 {
-    static unsigned long total_frames = 0;
-    static unsigned long refresh_time = 0;
-    static FrameTimer ft;
-    static FrameStats fps_stats;
+    static std::uint64_t total_frames = 0;
+    static std::uint64_t start_ticks = get_ticks();
+    static std::uint64_t last_update = 0;
 
-    ft.update();
-    fps_stats.new_frame(ft.get_frame_ticks());
-    refresh_time += ft.get_frame_ticks();
+    static TickQueue tq;
+    float delta = tq.new_frame(75) * 60.0f;
 
-    if (refresh_time >= 250) {
-        refresh_time = 0;
-
-        float fps = fps_stats.get_frames() / (fps_stats.get_ticks() / 1000.0f);
-        float mspf = fps_stats.get_ticks() / float(fps_stats.get_frames());
-        float avg = total_frames / (ft.get_total_ticks() / 1000.0f);
+    ++total_frames;
+    std::uint64_t curr_ticks = get_ticks() - start_ticks;
+    if (get_ticks() - last_update >= TICKS_PER_SECOND / 10) {
+        float avg_fps = total_frames / (curr_ticks / float(TICKS_PER_SECOND));
         std::printf(
                 "\r"
                 "%0.2f frames/sec, "
-                "%0.2f msec/frame, "
+                "%0.3f msec/frame, "
                 "%0.2f frames/sec avg  \b\b",
-                fps, mspf, avg);
+                tq.get_frames_per_second(),
+                tq.get_seconds_per_frame() * 1000.0f,
+                avg_fps);
         std::fflush(stdout);
+        last_update = get_ticks();
     }
-    ++total_frames;
 
-    return ft.get_frame_ticks() / 3.0f;
+    return delta;
 }
 
 CMat physics(const float acc, const CMat& mdir, Physics* cam)

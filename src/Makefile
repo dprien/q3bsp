@@ -33,7 +33,8 @@ CXXSRCS =\
  frustum.cc\
  tex.cc\
  vec.cc\
- archive.cc
+ archive.cc\
+ time.cc
 
 OBJS = $(CXXSRCS:.cc=.o)
 EXE = q3bsp
