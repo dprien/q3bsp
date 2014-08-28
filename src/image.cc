@@ -10,14 +10,6 @@
 #include "image.h"
 #include "exception.h"
 
-Image::Image(const int width, const int height, const void* raw_pixels)
-    : m_width(width), m_height(height)
-{
-    typename pixel_vector_t::size_type size = width * height * sizeof(pixel_t);
-    m_pixels = pixel_vector_t(size);
-    std::memcpy(m_pixels.data(), raw_pixels, size);
-}
-
 namespace
 {
     using surf_uptr_t = std::unique_ptr<SDL_Surface, void (*)(SDL_Surface*)>;
@@ -79,4 +71,12 @@ Image decode_by_extension(const std::vector<std::uint8_t>& buf,
     boost::algorithm::to_lower(extension);
     decode_func_t func = extension_decode_map.at(extension);
     return func(buf);
+}
+
+Image::Image(const int width, const int height, const void* raw_pixels)
+    : m_width(width), m_height(height)
+{
+    typename pixel_vector_t::size_type size = width * height * sizeof(pixel_t);
+    m_pixels = pixel_vector_t(size);
+    std::memcpy(m_pixels.data(), raw_pixels, size);
 }
