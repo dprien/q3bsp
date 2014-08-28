@@ -39,12 +39,12 @@ public:
 
 class CLightmapTex : public ITexture
 {
-    int     	m_width;
-    int     	m_height;
+    int         m_width;
+    int         m_height;
 
-    uint8_t 	*m_pixels;
+    uint8_t     *m_pixels;
 
-	static int	sm_overbrightBits;
+    static int  sm_overbrightBits;
 
     CLightmapTex(CLightmapTex const &);
     void operator = (CLightmapTex const &);
@@ -58,7 +58,7 @@ public:
 
     const uint8_t *GetPixels() const;
 
-	static void SetOverbrightBits(int);
+    static void SetOverbrightBits(int);
 };
 
 class CTexManager

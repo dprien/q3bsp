@@ -10,29 +10,29 @@ namespace
 {
     void swizzle(float v[3])
     {
-		float t = v[1];
+        float t = v[1];
         v[0] = -v[0];
         v[1] = v[2];
         v[2] = t;
     }
 
-	void swizzle(int v[3])
-	{
-		int t = v[1];
-		v[0] = -v[0];
-		v[1] = v[2];
-		v[2] = t;
-	}
+    void swizzle(int v[3])
+    {
+        int t = v[1];
+        v[0] = -v[0];
+        v[1] = v[2];
+        v[2] = t;
+    }
 
-	void make_aabb(const int mins[3], const int maxs[3], CVec* min, CVec* max)
-	{
-		min->x = mins[0];
-		min->y = mins[1];
-		min->z = mins[2];
-		max->x = maxs[0];
-		max->y = maxs[1];
-		max->z = maxs[2];
-	}
+    void make_aabb(const int mins[3], const int maxs[3], CVec* min, CVec* max)
+    {
+        min->x = mins[0];
+        min->y = mins[1];
+        min->z = mins[2];
+        max->x = maxs[0];
+        max->y = maxs[1];
+        max->z = maxs[2];
+    }
 
     void draw_aabb(const CVec& min, const CVec& max)
     {
@@ -170,7 +170,7 @@ void SimpleBezierSurface::draw() const
     glDisable(GL_TEXTURE_2D);
     glActiveTexture(GL_TEXTURE1_ARB);
     glDisable(GL_TEXTURE_2D);
-	glDisable(GL_DEPTH_TEST);
+    glDisable(GL_DEPTH_TEST);
     glColor3f(0.0f, 1.0f, 0.0f);
 
     auto v_it = m_vertices.cbegin();
@@ -180,9 +180,9 @@ void SimpleBezierSurface::draw() const
             glVertex3fv(v_it->position);
         }
         glEnd();
-	}
+    }
 
-	glEnable(GL_DEPTH_TEST);
+    glEnable(GL_DEPTH_TEST);
     glActiveTexture(GL_TEXTURE0_ARB);
     glEnable(GL_TEXTURE_2D);
     glActiveTexture(GL_TEXTURE1_ARB);
@@ -586,7 +586,7 @@ inline bool MapBSP46::is_cluster_visible(const int cur_cluster,
         const int cluster) const
 {
     const int n = (cur_cluster * m_vis_data.bytes_per_cluster) + (cluster >> 3);
-	return m_vis_bitset[n] & (1 << (cluster & 7));
+    return m_vis_bitset[n] & (1 << (cluster & 7));
 }
 
 int MapBSP46::find_leaf(const CVec& pos) const
@@ -610,18 +610,18 @@ int MapBSP46::find_leaf(const CVec& pos) const
 void MapBSP46::collect_leaves(index_vector_t* leaves, const int index,
         const CFrustum& frustum) const
 {
-	if (index < 0) {
-		leaves->push_back(~index);
-		return;
-	}
-	const DNode_t& node = m_nodes[index];
-	CVec box_min, box_max;
-	make_aabb(node.mins, node.maxs, &box_min, &box_max);
-	if (!frustum.AaBbVisible(box_min, box_max)) {
-		return;
+    if (index < 0) {
+        leaves->push_back(~index);
+        return;
     }
-	collect_leaves(leaves, node.front, frustum);
-	collect_leaves(leaves, node.back, frustum);
+    const DNode_t& node = m_nodes[index];
+    CVec box_min, box_max;
+    make_aabb(node.mins, node.maxs, &box_min, &box_max);
+    if (!frustum.AaBbVisible(box_min, box_max)) {
+        return;
+    }
+    collect_leaves(leaves, node.front, frustum);
+    collect_leaves(leaves, node.back, frustum);
 }
 
 void MapBSP46::draw_face(const std::size_t face_index) const
@@ -683,18 +683,18 @@ void MapBSP46::draw_face(const std::size_t face_index) const
 
 void MapBSP46::draw_leaves(const index_vector_t& leaves, const CFrustum& frustum) const
 {
-	CVec box_min, box_max;
-	index_vector_t faces;
+    CVec box_min, box_max;
+    index_vector_t faces;
 
     for (auto&& leaf_id : leaves) {
         const DLeaf_t& leaf = m_leaves[leaf_id];
-		make_aabb(leaf.mins, leaf.maxs, &box_min, &box_max);
-		if (!frustum.AaBbVisible(box_min, box_max)) {
-			continue;
+        make_aabb(leaf.mins, leaf.maxs, &box_min, &box_max);
+        if (!frustum.AaBbVisible(box_min, box_max)) {
+            continue;
         }
-		const DLeafFace_t* leaf_face = m_leaf_faces.data() + leaf.leaf_face;
-		for (int j = 0; j < leaf.num_leaf_faces; ++j) {
-			faces.push_back(leaf_face[j].face);
+        const DLeafFace_t* leaf_face = m_leaf_faces.data() + leaf.leaf_face;
+        for (int j = 0; j < leaf.num_leaf_faces; ++j) {
+            faces.push_back(leaf_face[j].face);
         }
     }
 
@@ -705,28 +705,28 @@ void MapBSP46::draw_leaves(const index_vector_t& leaves, const CFrustum& frustum
     }
 
 #if 0
-	glActiveTexture(GL_TEXTURE0_ARB);
-	glDisable(GL_TEXTURE_2D);
-	glActiveTexture(GL_TEXTURE1_ARB);
-	glDisable(GL_TEXTURE_2D);
+    glActiveTexture(GL_TEXTURE0_ARB);
+    glDisable(GL_TEXTURE_2D);
+    glActiveTexture(GL_TEXTURE1_ARB);
+    glDisable(GL_TEXTURE_2D);
     glDisable(GL_DEPTH_TEST);
 
     for (auto&& node : m_nodes) {
-		make_aabb(node.mins, node.maxs, &box_min, &box_max);
-		if (frustum.AaBbVisible(box_min, box_max)) {
-			glColor3f(0.0f, 1.0f, 0.0f);
+        make_aabb(node.mins, node.maxs, &box_min, &box_max);
+        if (frustum.AaBbVisible(box_min, box_max)) {
+            glColor3f(0.0f, 1.0f, 0.0f);
         }
-		else {
-			glColor3f(1.0f, 0.0f, 0.0f);
+        else {
+            glColor3f(1.0f, 0.0f, 0.0f);
         }
-		draw_aabb(box_min, box_max);
-	}
+        draw_aabb(box_min, box_max);
+    }
 
     glEnable(GL_DEPTH_TEST);
-	glActiveTexture(GL_TEXTURE1_ARB);
-	glEnable(GL_TEXTURE_2D);
-	glActiveTexture(GL_TEXTURE0_ARB);
-	glEnable(GL_TEXTURE_2D);
+    glActiveTexture(GL_TEXTURE1_ARB);
+    glEnable(GL_TEXTURE_2D);
+    glActiveTexture(GL_TEXTURE0_ARB);
+    glEnable(GL_TEXTURE_2D);
 #endif
 }
 
@@ -742,15 +742,15 @@ void MapBSP46::draw(const CVec& camera_pos, const CFrustum& frustum) const
     index_vector_t leaves;
     for (size_t i = 0; i < m_leaves.size(); ++i) {
         if (is_cluster_visible(cluster, m_leaves[i].cluster)) {
-			leaves.push_back(i);
+            leaves.push_back(i);
         }
     }
-	draw_leaves(leaves, frustum);
+    draw_leaves(leaves, frustum);
 }
 
 void MapBSP46::draw(const CFrustum& frustum) const
 {
-	index_vector_t leaves;
-	collect_leaves(&leaves, 0, frustum);
-	draw_leaves(leaves, frustum);
+    index_vector_t leaves;
+    collect_leaves(&leaves, 0, frustum);
+    draw_leaves(leaves, frustum);
 }

@@ -104,7 +104,7 @@ const uint8_t *CLightmapTex::GetPixels() const
 
 void CLightmapTex::SetOverbrightBits(int overbrightBits)
 {
-	sm_overbrightBits = overbrightBits;
+    sm_overbrightBits = overbrightBits;
 }
 
 // =======================================================================

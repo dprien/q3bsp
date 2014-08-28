@@ -18,17 +18,17 @@ class CMat;
 class CVec
 {
 public:
-	float	x;
-	float	y;
-	float	z;
-	
-	CVec(float = 0.0f, float = 0.0f, float = 0.0f);
+    float   x;
+    float   y;
+    float   z;
+
+    CVec(float = 0.0f, float = 0.0f, float = 0.0f);
     explicit CVec(const float *);
 
     float Magnitude() const;
     float Normalize();
 
-	float Dot(float, float, float) const;
+    float Dot(float, float, float) const;
     float Dot(const CVec &) const;
 
     CVec &operator += (const CVec &);
@@ -63,7 +63,7 @@ inline float CVec::Magnitude() const
 
 inline float CVec::Dot(float px, float py, float pz) const
 {
-	return x * px + y * py + z * pz;
+    return x * px + y * py + z * pz;
 }
 
 inline float CVec::Dot(const CVec &v) const
