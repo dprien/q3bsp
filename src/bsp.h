@@ -1,7 +1,8 @@
-#ifndef BSP__H
-#define BSP__H
+#ifndef Q3BSP__BSP_H
+#define Q3BSP__BSP_H
 
 #include <vector>
+#include <list>
 #include <cstdint>
 
 #define GL_GLEXT_PROTOTYPES
@@ -10,70 +11,102 @@
 #include "ibsp46.h"
 #include "vec.h"
 #include "archive.h"
-#include "bezier.h"
 #include "frustum.h"
 
-class CBspQ3
+class BinaryIO;
+
+class SimpleBezierSurface
 {
-    typedef std::vector<CBezierSurfQ3 *>    BezierList_t;
-    typedef std::vector<GLuint>             GlTexId_t;
+    public:
+        SimpleBezierSurface(const DVertex_t* const, const int);
 
-	typedef std::vector<int>				IndexList_t;
+        SimpleBezierSurface(const SimpleBezierSurface&) = delete;
+        void operator=(const SimpleBezierSurface&) = delete;
 
-    std::vector<uint8_t> m_bspData;
+        void draw() const;
 
-    size_t          m_nTextures;
-    DTexture_t      *m_textures;
+    private:
+        int                     m_num_vertices;
+        std::vector<DVertex_t>  m_vertices;
+};
 
-    size_t          m_nFaces;
-    DFace_t         *m_faces;
+class GLBezierSurface
+{
+    public:
+        GLBezierSurface(const DVertex_t* const, const int, const int, const int);
+        ~GLBezierSurface() noexcept;
 
-    size_t          m_nVertices;
-    DVertex_t       *m_vertices;
+        GLBezierSurface(const GLBezierSurface&) = delete;
+        void operator=(const GLBezierSurface&) = delete;
 
-    size_t          m_nPlanes;
-    DPlane_t        *m_planes;
+        void draw() const;
 
-    size_t          m_nLeaves;
-    DLeaf_t         *m_leaves;
+    private:
+        GLuint m_gl_list_id;
+};
 
-    size_t          m_nLeafFaces;
-    DLeafFace_t     *m_leafFaces;
+class MapBSP46
+{
+    public:
+        MapBSP46(const char* const, const PAK3Archive&);
+        ~MapBSP46() noexcept;
 
-    size_t          m_nNodes;
-    DNode_t         *m_nodes;
+        MapBSP46(const MapBSP46&) = delete;
+        void operator=(const MapBSP46&) = delete;
 
-    size_t          m_nMeshVerts;
-    DMeshVert_t     *m_meshVerts;
+        void draw(const CVec&, const CFrustum&) const;
 
-    DVisData_t      *m_visData;
+    private:
+        using bezier_vector_t = std::vector<GLBezierSurface*>;
+        using tex_id_vector_t = std::vector<GLuint>;
+        using index_vector_t = std::vector<int>;
 
-    BezierList_t    m_beziers;
+        DHeader_t                   m_header;
+        DDir_t                      m_directory;
 
-    GlTexId_t       m_glTexIds;
-    GlTexId_t       m_glLmapIds;
+        std::vector<DTexture_t>     m_textures;
+        std::vector<DFace_t>        m_faces;
+        std::vector<DVertex_t>      m_vertices;
+        std::vector<DPlane_t>       m_planes;
+        std::vector<DLeaf_t>        m_leaves;
+        std::vector<DLeafFace_t>    m_leaf_faces;
+        std::vector<DNode_t>        m_nodes;
+        std::vector<DMeshVert_t>    m_mesh_verts;
+        std::vector<DLightmap_t>    m_lightmaps;
 
-    void LoadTextures(const PAK3Archive &);
-    void ProcessLightmaps(const DLightmap_t *, size_t);
-    
-	void DrawFace(size_t) const;
+        DVisData_t                  m_vis_data;
+        std::vector<std::uint8_t>   m_vis_bitset;
 
-    int FindLeaf(const CVec &) const;
-    bool IsClusterVisible(int, int) const;
-	
-	void CollectLeaves(IndexList_t &, int, const CFrustum &) const;
-	void DrawLeaves(const IndexList_t &, const CFrustum &) const;
-    
-	void Render(const CFrustum &) const;
+        bezier_vector_t             m_beziers;
 
-    CBspQ3(const CBspQ3 &);
-    void operator = (const CBspQ3 &);
+        tex_id_vector_t             m_texture_ids;
+        tex_id_vector_t             m_lightmap_ids;
 
-public:
-    CBspQ3(const char *, const PAK3Archive &);
-    ~CBspQ3() throw ();
+        void bsp_read_header(BinaryIO*);
+        void bsp_read_directory(BinaryIO*);
+        void bsp_read_textures(BinaryIO*);
+        void bsp_read_faces(BinaryIO*);
+        void bsp_read_vertices(BinaryIO*);
+        void bsp_read_planes(BinaryIO*);
+        void bsp_read_leaves(BinaryIO*);
+        void bsp_read_leaf_faces(BinaryIO*);
+        void bsp_read_nodes(BinaryIO*);
+        void bsp_read_mesh_verts(BinaryIO*);
+        void bsp_read_lightmaps(BinaryIO*);
+        void bsp_read_vis_data(BinaryIO*);
 
-    void Render(const CVec &, const CFrustum &) const;
+        void load_textures(const PAK3Archive&);
+        void process_lightmaps();
+
+        bool is_cluster_visible(const int, const int) const;
+
+        int find_leaf(const CVec&) const;
+        void collect_leaves(index_vector_t*, const int, const CFrustum&) const;
+
+        void draw_face(const std::size_t) const;
+        void draw_leaves(const index_vector_t&, const CFrustum&) const;
+
+        void draw(const CFrustum&) const;
 };
 
 #endif

@@ -3,9 +3,7 @@
 
 #include <cstdint>
 
-const char g_ibspMagic[4] = { 'I', 'B', 'S', 'P' };
-
-#pragma pack (push, 1)
+const char g_ibsp_magic[] = { 'I', 'B', 'S', 'P' };
 
 typedef struct
 {
@@ -18,7 +16,5 @@ typedef struct
     uint32_t    offset;         // Offset to start of lump, relative to beginning of file.
     uint32_t    length;         // Length of lump. Always a multiple of 4.
 } DDirEntry_t;
-
-#pragma pack (pop)
 
 #endif

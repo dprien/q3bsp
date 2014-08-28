@@ -241,7 +241,7 @@ CMat simulate(const float dt, const CMat& mdir, Simulation* sim)
     return mat * mdir;
 }
 
-void loop(Render& render, const CBspQ3& bsp)
+void loop(Render& render, const MapBSP46& map)
 {
     float yaw = 0.0f, pitch = 0.0f, roll = 0.0f;
     Simulation sim;
@@ -261,10 +261,8 @@ void loop(Render& render, const CBspQ3& bsp)
 
         render.new_frame();
         glMatrixMode(GL_MODELVIEW);
-        glLoadIdentity();
         glLoadMatrixf(mat.GetMatrix());
-        CFrustum frustum;
-        bsp.Render(sim.position, frustum);
+        map.draw(sim.position, CFrustum());
         render.end_frame();
     }
 
@@ -299,10 +297,10 @@ int main(int argc, char* argv[])
         std::string filename = "maps/";
         filename += argv[2];
         filename += ".bsp";
-        CBspQ3 bsp(filename.c_str(), pak);
+        MapBSP46 map(filename.c_str(), pak);
 
         std::printf("Init: %0.2f sec\n", (SDL_GetTicks() - mticks) / 1000.0f);
-        loop(render, bsp);
+        loop(render, map);
     }
     catch (const QException& e) {
         std::cerr << argv[0] << ": Error: " << e.what() << std::endl;
