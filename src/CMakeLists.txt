@@ -29,7 +29,7 @@ add_executable(q3bsp
     bsp.cc
     image.cc
     main.cc
-    tex.cc
+    texture.cc
     time.cc
 )
 
