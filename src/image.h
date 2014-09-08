@@ -5,13 +5,13 @@
 #include <utility>
 #include <cstdint>
 
-typedef struct
+using pixel_t = struct SPixel
 {
     std::uint8_t red;
     std::uint8_t green;
     std::uint8_t blue;
     std::uint8_t alpha;
-} pixel_t;
+};
 
 using pixel_vector_t = std::vector<pixel_t>;
 
@@ -22,11 +22,11 @@ class Image
             : m_width(0), m_height(0), m_pixels()
         {}
 
-        Image(const int width, const int height, pixel_vector_t pixels)
+        Image(const unsigned width, const unsigned height, pixel_vector_t pixels)
             : m_width(width), m_height(height), m_pixels(std::move(pixels))
         {}
 
-        Image(const int, const int, const void*);
+        Image(const unsigned, const unsigned, const void*);
 
         Image(const Image&) = delete;
         void operator=(const Image&) = delete;
@@ -34,12 +34,12 @@ class Image
         Image(Image&& other) = default;
         Image& operator=(Image&& other) = default;
 
-        int get_width() const
+        unsigned get_width() const
         {
             return m_width;
         }
 
-        int get_height() const
+        unsigned get_height() const
         {
             return m_height;
         }
@@ -50,8 +50,8 @@ class Image
         }
 
     private:
-        int             m_width;
-        int             m_height;
+        unsigned        m_width;
+        unsigned        m_height;
         pixel_vector_t  m_pixels;
 
 };

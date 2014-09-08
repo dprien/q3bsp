@@ -7,8 +7,8 @@
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_image.h>
 
-#include "image.h"
-#include "exception.h"
+#include "src/image.h"
+#include "src/exception.h"
 
 namespace
 {
@@ -38,13 +38,15 @@ namespace
         if (!c) {
             throwf("SDL_ConvertSurface: %s", SDL_GetError());
         }
-        return Image(c->w, c->h, c->pixels);
+        return Image(static_cast<unsigned>(c->w), static_cast<unsigned>(c->h),
+                c->pixels);
     }
 
     Image decode_with(load_func_t load_func,
             const std::vector<std::uint8_t>& buf, const char* load_func_name)
     {
-        SDL_RWops* ops = SDL_RWFromConstMem(buf.data(), buf.size());
+        SDL_RWops* ops = SDL_RWFromConstMem(buf.data(),
+                static_cast<int>(buf.size()));
         surf_uptr_t surf(load_func(ops), SDL_FreeSurface);
         if (!surf) {
             throwf("%s: %s", load_func_name, IMG_GetError());
@@ -73,7 +75,7 @@ Image decode_by_extension(const std::vector<std::uint8_t>& buf,
     return func(buf);
 }
 
-Image::Image(const int width, const int height, const void* raw_pixels)
+Image::Image(const unsigned width, const unsigned height, const void* raw_pixels)
     : m_width(width), m_height(height)
 {
     typename pixel_vector_t::size_type size = width * height * sizeof(pixel_t);
