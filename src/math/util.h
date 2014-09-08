@@ -13,27 +13,24 @@ template <class T>
 class Plane
 {
     public:
-        Vector3<T>  n;
+        Vector3<T>  normal;
         T           d;
 
-        Plane(T x = T(0), T y = T(0), T z = T(0), T pd = T(0))
-            : n(x, y, z), d(pd)
-        {
-        }
+        Plane()
+        {}
 
-        Plane(const Vector3<T>& pn, T pd = T(0))
-            : n(pn), d(pd)
-        {
-        }
+        Plane(const Vector3<T>& pn, const T pd)
+            : normal(pn), d(pd)
+        {}
 
         void normalize()
         {
-            d /= n.normalize();
+            d /= normal.normalize();
         }
 
-        T distance(T x, T y, T z) const
+        T distance(const T x, const T y, const T z) const
         {
-            return n.dot(Vector3<T>(x, y, z)) + d;
+            return normal.dot(Vector3<T>(x, y, z)) + d;
         }
 
         T distance(const Vector3<T>& v) const
@@ -76,40 +73,40 @@ class GLFrustum
             clip[15] = m[12] * p[3] + m[13] * p[7] + m[14] * p[11] + m[15] * p[15];
 
             // RIGHT
-            m_plane[0].n.x = clip[3]  - clip[0];
-            m_plane[0].n.y = clip[7]  - clip[4];
-            m_plane[0].n.z = clip[11] - clip[8];
-            m_plane[0].d   = clip[15] - clip[12];
+            m_plane[0].normal.x = clip[3]  - clip[0];
+            m_plane[0].normal.y = clip[7]  - clip[4];
+            m_plane[0].normal.z = clip[11] - clip[8];
+            m_plane[0].d        = clip[15] - clip[12];
 
             // LEFT
-            m_plane[1].n.x = clip[3]  + clip[0];
-            m_plane[1].n.y = clip[7]  + clip[4];
-            m_plane[1].n.z = clip[11] + clip[8];
-            m_plane[1].d   = clip[15] + clip[12];
+            m_plane[1].normal.x = clip[3]  + clip[0];
+            m_plane[1].normal.y = clip[7]  + clip[4];
+            m_plane[1].normal.z = clip[11] + clip[8];
+            m_plane[1].d        = clip[15] + clip[12];
 
             // BOTTOM
-            m_plane[2].n.x = clip[3]  + clip[1];
-            m_plane[2].n.y = clip[7]  + clip[5];
-            m_plane[2].n.z = clip[11] + clip[9];
-            m_plane[2].d   = clip[15] + clip[13];
+            m_plane[2].normal.x = clip[3]  + clip[1];
+            m_plane[2].normal.y = clip[7]  + clip[5];
+            m_plane[2].normal.z = clip[11] + clip[9];
+            m_plane[2].d        = clip[15] + clip[13];
 
             // TOP
-            m_plane[3].n.x = clip[3]  - clip[1];
-            m_plane[3].n.y = clip[7]  - clip[5];
-            m_plane[3].n.z = clip[11] - clip[9];
-            m_plane[3].d   = clip[15] - clip[13];
+            m_plane[3].normal.x = clip[3]  - clip[1];
+            m_plane[3].normal.y = clip[7]  - clip[5];
+            m_plane[3].normal.z = clip[11] - clip[9];
+            m_plane[3].d        = clip[15] - clip[13];
 
             // FAR
-            m_plane[4].n.x = clip[3]  - clip[2];
-            m_plane[4].n.y = clip[7]  - clip[6];
-            m_plane[4].n.z = clip[11] - clip[10];
-            m_plane[4].d   = clip[15] - clip[14];
+            m_plane[4].normal.x = clip[3]  - clip[2];
+            m_plane[4].normal.y = clip[7]  - clip[6];
+            m_plane[4].normal.z = clip[11] - clip[10];
+            m_plane[4].d        = clip[15] - clip[14];
 
             // NEAR
-            m_plane[5].n.x = clip[3]  + clip[2];
-            m_plane[5].n.y = clip[7]  + clip[6];
-            m_plane[5].n.z = clip[11] + clip[10];
-            m_plane[5].d   = clip[15] + clip[14];
+            m_plane[5].normal.x = clip[3]  + clip[2];
+            m_plane[5].normal.y = clip[7]  + clip[6];
+            m_plane[5].normal.z = clip[11] + clip[10];
+            m_plane[5].d        = clip[15] + clip[14];
 
             for (int i = 0; i < 6; ++i) {
                 m_plane[i].normalize();
