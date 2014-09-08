@@ -112,7 +112,7 @@ inline Vector4<T> operator-(Vector4<T> lhs, const Vector4<T>& rhs)
 }
 
 template <class T>
-inline Vector4<T> operator*(Vector4<T> lhs, float rhs)
+inline Vector4<T> operator*(Vector4<T> lhs, const T rhs)
 {
     return lhs *= rhs;
 }

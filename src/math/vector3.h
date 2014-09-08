@@ -28,14 +28,9 @@ class Vector3
             return std::sqrt(x * x + y * y + z * z);
         }
 
-        T dot(const T px, const T py, const T pz) const
-        {
-            return x * px + y * py + z * pz;
-        }
-
         T dot(const Vector3& other) const
         {
-            return dot(other.x, other.y, other.z);
+            return x * other.x + y * other.y + z * other.z;
         }
 
         T normalize()
@@ -98,7 +93,7 @@ inline Vector3<T> operator-(Vector3<T> lhs, const Vector3<T>& rhs)
 }
 
 template <class T>
-inline Vector3<T> operator*(Vector3<T> lhs, T rhs)
+inline Vector3<T> operator*(Vector3<T> lhs, const T rhs)
 {
     return lhs *= rhs;
 }
