@@ -13,9 +13,6 @@ class QException
             : m_message(message)
         {}
 
-        virtual ~QException() noexcept
-        {}
-
         const std::string& what() const
         {
             return m_message;
@@ -26,6 +23,7 @@ class QException
 };
 
 template <class T = QException>
+__attribute__((__format__ (__printf__, 1, 0)))
 void throwf(const char* fmt, ...)
 {
     va_list ap;
