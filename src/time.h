@@ -4,10 +4,10 @@
 #include <deque>
 #include <cstdint>
 
-#define TICKS_PER_SECOND 1000000000
+#define TICKS_PER_SECOND 1000000000LL
 
-extern std::uint64_t get_ticks();
-extern void sleep_ticks(std::uint64_t);
+extern std::int64_t get_ticks();
+extern void sleep_ticks(std::int64_t);
 
 class TickQueue
 {
@@ -18,7 +18,7 @@ class TickQueue
             m_queue.push_back(get_ticks());
         }
 
-        std::uint64_t get_cum_ticks() const
+        std::int64_t get_cum_ticks() const
         {
             return m_queue.back() - m_queue.front();
         }
@@ -26,14 +26,14 @@ class TickQueue
         float get_seconds() const
         {
             return get_cum_ticks() / float(TICKS_PER_SECOND);
-        };
+        }
 
-        std::uint64_t get_frames() const
+        std::int64_t get_frames() const
         {
             return m_frames;
         }
 
-        std::uint64_t get_ticks_per_frame() const
+        std::int64_t get_ticks_per_frame() const
         {
             return get_cum_ticks() / m_frames;
         }
@@ -51,8 +51,8 @@ class TickQueue
         float new_frame(const int = 0);
 
     private:
-        std::deque<std::uint64_t>   m_queue;
-        std::uint64_t               m_frames;
+        std::deque<std::int64_t>    m_queue;
+        std::int64_t                m_frames;
 };
 
 #endif
