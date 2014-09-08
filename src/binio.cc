@@ -1,15 +1,19 @@
 #include <memory>
 #include <cstring>
+#include <limits>
 
 #include <SDL2/SDL.h>
 
-#include "binio.h"
-#include "exception.h"
+#include "src/binio.h"
+#include "src/exception.h"
 
 BinaryIO::BinaryIO(BinaryIO::octet_vec_t octets)
     : m_octets(std::move(octets))
 {
-    m_ops = SDL_RWFromMem(m_octets.data(), m_octets.size());
+    if (m_octets.size() > std::numeric_limits<int>::max()) {
+        throwf("SDL_RWFromMem: `size` parameter out of range");
+    }
+    m_ops = SDL_RWFromMem(m_octets.data(), static_cast<int>(m_octets.size()));
 }
 
 BinaryIO::~BinaryIO() noexcept
@@ -23,7 +27,7 @@ BinaryIO::offset_t BinaryIO::seek(const BinaryIO::offset_t ofs)
     if (new_ofs == -1) {
         throwf("SDL_RWseek: %s", SDL_GetError());
     }
-    return new_ofs;
+    return static_cast<offset_t>(new_ofs);
 }
 
 BinaryIO::offset_t BinaryIO::tell() const
@@ -32,7 +36,7 @@ BinaryIO::offset_t BinaryIO::tell() const
     if (ofs == -1) {
         throwf("SDL_RWtell: %s", SDL_GetError());
     }
-    return ofs;
+    return static_cast<offset_t>(ofs);
 }
 
 std::int8_t BinaryIO::read_s8()
@@ -51,12 +55,12 @@ std::uint8_t BinaryIO::read_u8()
 
 std::int16_t BinaryIO::read_s16le()
 {
-    return SDL_ReadLE16(m_ops);
+    return static_cast<std::int16_t>(SDL_ReadLE16(m_ops));
 }
 
 std::int16_t BinaryIO::read_s16be()
 {
-    return SDL_ReadBE16(m_ops);
+    return static_cast<std::int16_t>(SDL_ReadBE16(m_ops));
 }
 
 std::uint16_t BinaryIO::read_u16le()
@@ -71,12 +75,12 @@ std::uint16_t BinaryIO::read_u16be()
 
 std::int32_t BinaryIO::read_s32le()
 {
-    return SDL_ReadLE32(m_ops);
+    return static_cast<std::int32_t>(SDL_ReadLE32(m_ops));
 }
 
 std::int32_t BinaryIO::read_s32be()
 {
-    return SDL_ReadBE32(m_ops);
+    return static_cast<std::int32_t>(SDL_ReadBE32(m_ops));
 }
 
 std::uint32_t BinaryIO::read_u32le()
@@ -91,12 +95,12 @@ std::uint32_t BinaryIO::read_u32be()
 
 std::int64_t BinaryIO::read_s64le()
 {
-    return SDL_ReadLE64(m_ops);
+    return static_cast<std::int64_t>(SDL_ReadLE64(m_ops));
 }
 
 std::int64_t BinaryIO::read_s64be()
 {
-    return SDL_ReadBE64(m_ops);
+    return static_cast<std::int64_t>(SDL_ReadBE64(m_ops));
 }
 
 std::uint64_t BinaryIO::read_u64le()
@@ -111,8 +115,6 @@ std::uint64_t BinaryIO::read_u64be()
 
 float BinaryIO::read_f32le()
 {
-    // FIXME: Totally not portable
-
     static_assert(sizeof(float) == 4, "sizeof(float) != 4 not supported");
     std::uint8_t buf[4];
     SDL_RWread(m_ops, buf, 1, 4);
@@ -123,8 +125,6 @@ float BinaryIO::read_f32le()
 
 float BinaryIO::read_f32be()
 {
-    // FIXME: Totally not portable
-
     static_assert(sizeof(float) == 4, "sizeof(float) != 4 not supported");
     std::uint8_t buf[4];
     SDL_RWread(m_ops, buf, 1, 4);
@@ -135,8 +135,6 @@ float BinaryIO::read_f32be()
 
 double BinaryIO::read_f64le()
 {
-    // FIXME: Totally not portable
-
     static_assert(sizeof(double) == 8, "sizeof(double) != 8 not supported");
     std::uint8_t buf[8];
     SDL_RWread(m_ops, buf, 1, 8);
@@ -147,8 +145,6 @@ double BinaryIO::read_f64le()
 
 double BinaryIO::read_f64be()
 {
-    // FIXME: Totally not portable
-
     static_assert(sizeof(double) == 8, "sizeof(double) != 8 not supported");
     std::uint8_t buf[8];
     SDL_RWread(m_ops, buf, 1, 8);

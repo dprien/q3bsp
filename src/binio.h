@@ -1,4 +1,4 @@
-#ifndef Q3BSP__BINIO_h
+#ifndef Q3BSP__BINIO_H
 #define Q3BSP__BINIO_H
 
 #include <vector>
