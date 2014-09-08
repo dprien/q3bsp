@@ -195,7 +195,6 @@ namespace
         float dt = tq.new_frame(60);
 
         ++total_frames;
-#if 0
         std::int64_t curr_ticks = get_ticks() - start_ticks;
         if (get_ticks() - last_update >= TICKS_PER_SECOND / 10) {
             float avg_fps = total_frames / (curr_ticks /
@@ -211,7 +210,6 @@ namespace
             std::fflush(stdout);
             last_update = get_ticks();
         }
-#endif
 
         return dt;
     }
