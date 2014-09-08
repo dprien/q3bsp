@@ -1,10 +1,11 @@
 #include <algorithm>
 #include <iostream>
 
-#include "bsp.h"
-#include "exception.h"
-#include "tex.h"
-#include "binio.h"
+#include "src/bsp.h"
+#include "src/exception.h"
+#include "src/binio.h"
+#include "src/math/vector3.h"
+#include "src/math/util.h"
 
 namespace
 {
@@ -24,7 +25,7 @@ namespace
         v[2] = t;
     }
 
-    void make_aabb(const int mins[3], const int maxs[3], CVec* min, CVec* max)
+    void make_aabb(const int mins[3], const int maxs[3], vec3* min, vec3* max)
     {
         min->x = mins[0];
         min->y = mins[1];
@@ -34,7 +35,7 @@ namespace
         max->z = maxs[2];
     }
 
-    void draw_aabb(const CVec& min, const CVec& max)
+    void draw_aabb(const vec3& min, const vec3& max)
     {
         const float x1 = min.x, y1 = min.y, z1 = min.z;
         const float x2 = max.x, y2 = max.y, z2 = max.z;
@@ -67,13 +68,13 @@ namespace
 }
 
 SimpleBezierSurface::SimpleBezierSurface(const DVertex_t* const controls,
-        const int steps)
+        const unsigned steps)
     : m_num_vertices(steps + 1), m_vertices(m_num_vertices * m_num_vertices)
 {
     auto v_it = m_vertices.begin();
     DVertex_t temp[3];
 
-    for (int i = 0; i < m_num_vertices; ++i) {
+    for (unsigned i = 0; i < m_num_vertices; ++i) {
         float a = i / float(steps);
         float b = 1.0f - a;
 
@@ -110,7 +111,7 @@ SimpleBezierSurface::SimpleBezierSurface(const DVertex_t* const controls,
                     t2 * v3.color[k]);
             }
         }
-        for (int j = 0; j < m_num_vertices; ++j, ++v_it) {
+        for (unsigned j = 0; j < m_num_vertices; ++j, ++v_it) {
             a = j / float(steps);
             b = 1.0f - a;
 
@@ -149,9 +150,9 @@ void SimpleBezierSurface::draw() const
     auto v1_it = m_vertices.cbegin();
     auto v2_it = m_vertices.cbegin() + m_num_vertices;
 
-    for (int i = 0; i < m_num_vertices - 1; ++i) {
+    for (unsigned i = 0; i < m_num_vertices - 1; ++i) {
         glBegin(GL_QUAD_STRIP);
-        for (int j = 0; j < m_num_vertices; ++j, ++v1_it, ++v2_it) {
+        for (unsigned j = 0; j < m_num_vertices; ++j, ++v1_it, ++v2_it) {
             glColor4ubv(v2_it->color);
             glMultiTexCoord2fv(GL_TEXTURE0_ARB, v2_it->tex_coord);
             glMultiTexCoord2fv(GL_TEXTURE1_ARB, v2_it->lm_coord);
@@ -174,9 +175,9 @@ void SimpleBezierSurface::draw() const
     glColor3f(0.0f, 1.0f, 0.0f);
 
     auto v_it = m_vertices.cbegin();
-    for (int i = 0; i < m_num_vertices; ++i) {
+    for (unsigned i = 0; i < m_num_vertices; ++i) {
         glBegin(GL_LINE_STRIP);
-        for (int j = 0; j < m_num_vertices; ++j, ++v_it) {
+        for (unsigned j = 0; j < m_num_vertices; ++j, ++v_it) {
             glVertex3fv(v_it->position);
         }
         glEnd();
@@ -191,7 +192,7 @@ void SimpleBezierSurface::draw() const
 }
 
 GLBezierSurface::GLBezierSurface(const DVertex_t* const vertices,
-        const int n_max, const int m_max, const int steps)
+        const int n_max, const int m_max, const unsigned steps)
 {
     m_gl_list_id = glGenLists(1);
     glNewList(m_gl_list_id, GL_COMPILE);
@@ -284,7 +285,8 @@ void MapBSP46::bsp_read_textures(BinaryIO* bio)
     bio->seek(m_directory.textures.offset);
 
     const std::size_t entry_size = 72;
-    m_textures = std::vector<DTexture_t>(m_directory.textures.length / entry_size);
+    m_textures = std::vector<DTexture_t>(m_directory.textures.length /
+            entry_size);
     for (auto&& texture : m_textures) {
         bio->read_chars(texture.name, sizeof(texture.name));
         texture.flags = bio->read_u32le();
@@ -308,6 +310,11 @@ void MapBSP46::bsp_read_faces(BinaryIO* bio)
 
         face.mesh_vert = bio->read_u32le();
         face.num_mesh_verts = bio->read_u32le();
+        if (face.num_mesh_verts > std::numeric_limits<GLsizei>::max()) {
+            // face.num_mesh_verts will later be used for glDrawElements,
+            // which expects a parameter of type GLsizei
+            throwf("`face.num_mesh_verts` value out of range");
+        }
 
         face.lm_index = bio->read_u32le();
 
@@ -338,7 +345,8 @@ void MapBSP46::bsp_read_vertices(BinaryIO* bio)
     bio->seek(m_directory.vertices.offset);
 
     const std::size_t entry_size = 44;
-    m_vertices = std::vector<DVertex_t>(m_directory.vertices.length / entry_size);
+    m_vertices = std::vector<DVertex_t>(m_directory.vertices.length /
+            entry_size);
     for (auto&& vertex : m_vertices) {
         for (int i = 0; i < 3; ++i) {
             vertex.position[i] = bio->read_f32le();
@@ -396,6 +404,10 @@ void MapBSP46::bsp_read_leaves(BinaryIO* bio)
 
         leaf.leaf_face = bio->read_s32le();
         leaf.num_leaf_faces = bio->read_s32le();
+        if (leaf.num_leaf_faces < 0) {
+            // For some reason, Id decided to make this one signed.
+            throwf("`leaf.num_leaf_faces` value out of range");
+        }
 
         leaf.leaf_brush = bio->read_s32le();
         leaf.num_leaf_brushes = bio->read_s32le();
@@ -410,7 +422,8 @@ void MapBSP46::bsp_read_leaf_faces(BinaryIO* bio)
     bio->seek(m_directory.leaf_faces.offset);
 
     const std::size_t entry_size = 4;
-    m_leaf_faces = std::vector<DLeafFace_t>(m_directory.leaf_faces.length / entry_size);
+    m_leaf_faces = std::vector<DLeafFace_t>(m_directory.leaf_faces.length /
+            entry_size);
     for (auto&& leaf_face : m_leaf_faces) {
         leaf_face.face = bio->read_s32le();
     }
@@ -424,6 +437,10 @@ void MapBSP46::bsp_read_nodes(BinaryIO* bio)
     m_nodes = std::vector<DNode_t>(m_directory.nodes.length / entry_size);
     for (auto&& node : m_nodes) {
         node.plane = bio->read_s32le();
+        if (node.plane < 0) {
+            // For some reason, Id decided to make this one signed.
+            throwf("`node.plane` value out of range");
+        }
 
         node.front = bio->read_s32le();
         node.back = bio->read_s32le();
@@ -445,7 +462,8 @@ void MapBSP46::bsp_read_mesh_verts(BinaryIO* bio)
     bio->seek(m_directory.mesh_verts.offset);
 
     const std::size_t entry_size = 4;
-    m_mesh_verts = std::vector<DMeshVert_t>(m_directory.mesh_verts.length / entry_size);
+    m_mesh_verts = std::vector<DMeshVert_t>(m_directory.mesh_verts.length /
+            entry_size);
     for (auto&& mesh_vert : m_mesh_verts) {
         mesh_vert.offset = bio->read_s32le();
     }
@@ -456,7 +474,8 @@ void MapBSP46::bsp_read_lightmaps(BinaryIO* bio)
     bio->seek(m_directory.lightmaps.offset);
 
     const std::size_t entry_size = 128 * 128 * 3;
-    m_lightmaps = std::vector<DLightmap_t>(m_directory.lightmaps.length / entry_size);
+    m_lightmaps = std::vector<DLightmap_t>(m_directory.lightmaps.length /
+            entry_size);
     for (auto&& lightmap : m_lightmaps) {
         for (int i = 0; i < 128 * 128 * 3; ++i) {
             lightmap.map[i] = bio->read_u8();
@@ -537,14 +556,13 @@ MapBSP46::MapBSP46(const char* filename, const PAK3Archive& pak)
 
 MapBSP46::~MapBSP46() noexcept
 {
-    CTexManager& tex_mgr = CTexManager::Instance();
-    for (auto&& texture_id : m_texture_ids) {
-        tex_mgr.Free(texture_id);
+    for (auto texture_id : m_texture_ids) {
+        m_tex_mgr.free(texture_id);
     }
-    for (auto&& lightmap_id : m_lightmap_ids) {
-        tex_mgr.Free(lightmap_id);
+    for (auto lightmap_id : m_lightmap_ids) {
+        m_tex_mgr.free(lightmap_id);
     }
-    for (auto&& p : m_beziers) {
+    for (auto p : m_beziers) {
         delete p;
     }
 }
@@ -552,8 +570,6 @@ MapBSP46::~MapBSP46() noexcept
 void MapBSP46::load_textures(const PAK3Archive& pak)
 {
     static const char* const file_extensions[2] = { ".jpg", ".tga" };
-    CTexManager& manager = CTexManager::Instance();
-
     std::cout << "Precaching textures..." << std::endl;
     for (auto&& texture : m_textures) {
         uint32_t texture_id = 0;
@@ -561,11 +577,11 @@ void MapBSP46::load_textures(const PAK3Archive& pak)
             std::string filename = texture.name;
             filename += file_extensions[j];
             try {
-                CImageTex bsp_texture(filename.c_str(), pak);
-                texture_id = manager.Add(bsp_texture);
+                ImageTexture bsp_texture(filename.c_str(), pak);
+                texture_id = m_tex_mgr.add(bsp_texture);
                 break;
             }
-            catch (const QException& e) {
+            catch (const QException&) {
             }
         }
         m_texture_ids.push_back(texture_id);
@@ -574,57 +590,14 @@ void MapBSP46::load_textures(const PAK3Archive& pak)
 
 void MapBSP46::process_lightmaps()
 {
-    CTexManager& tex_mgr = CTexManager::Instance();
-    for (std::size_t i = 0; i < m_lightmaps.size(); ++i) {
-        CLightmapTex lmap(m_lightmaps[i]);
-        GLuint texture_id = tex_mgr.Add(lmap);
+    for (auto&& lightmap : m_lightmaps) {
+        LightmapTexture lmtex(lightmap);
+        GLuint texture_id = m_tex_mgr.add(lmtex);
         m_lightmap_ids.push_back(texture_id);
     }
 }
 
-inline bool MapBSP46::is_cluster_visible(const int cur_cluster,
-        const int cluster) const
-{
-    const int n = (cur_cluster * m_vis_data.bytes_per_cluster) + (cluster >> 3);
-    return m_vis_bitset[n] & (1 << (cluster & 7));
-}
-
-int MapBSP46::find_leaf(const CVec& pos) const
-{
-    int index = 0;
-    while (index >= 0) {
-        const DNode_t& node = m_nodes[index];
-        const DPlane_t& plane = m_planes[node.plane];
-        CVec v(plane.normal);
-        const float dist = v.Dot(pos) - plane.dist;
-        if (dist >= 0.0f) {
-            index = node.front;
-        }
-        else {
-            index = node.back;
-        }
-    }
-    return ~index;
-}
-
-void MapBSP46::collect_leaves(index_vector_t* leaves, const int index,
-        const CFrustum& frustum) const
-{
-    if (index < 0) {
-        leaves->push_back(~index);
-        return;
-    }
-    const DNode_t& node = m_nodes[index];
-    CVec box_min, box_max;
-    make_aabb(node.mins, node.maxs, &box_min, &box_max);
-    if (!frustum.AaBbVisible(box_min, box_max)) {
-        return;
-    }
-    collect_leaves(leaves, node.front, frustum);
-    collect_leaves(leaves, node.back, frustum);
-}
-
-void MapBSP46::draw_face(const std::size_t face_index) const
+void MapBSP46::draw_face(const face_index_size_t face_index) const
 {
     const DFace_t& face = m_faces[face_index];
 
@@ -648,17 +621,16 @@ void MapBSP46::draw_face(const std::size_t face_index) const
 
     if (face.type == 1) {
         const DVertex_t* const vertex = m_vertices.data() + face.vertex;
-        const int num_vertices = face.num_vertices;
-        if (num_vertices == 3) {
+        if (face.num_vertices == 3) {
             glBegin(GL_TRIANGLES);
         }
-        else if (num_vertices == 4) {
+        else if (face.num_vertices == 4) {
             glBegin(GL_QUADS);
         }
         else {
             glBegin(GL_POLYGON);
         }
-        for (int j = 0; j < num_vertices; ++j) {
+        for (std::uint32_t j = 0; j < face.num_vertices; ++j) {
             const DVertex_t& cv = vertex[j];
             glColor4ubv(cv.color);
             glMultiTexCoord2fv(GL_TEXTURE0_ARB, cv.tex_coord);
@@ -676,31 +648,32 @@ void MapBSP46::draw_face(const std::size_t face_index) const
         glColorPointer(4, GL_UNSIGNED_BYTE, sizeof(DVertex_t), vertex.color);
         glTexCoordPointer(2, GL_FLOAT, sizeof(DVertex_t), vertex.tex_coord);
         glVertexPointer(3, GL_FLOAT, sizeof(DVertex_t), vertex.position);
-        glDrawElements(GL_TRIANGLES, face.num_mesh_verts, GL_UNSIGNED_INT,
-                &m_mesh_verts[face.mesh_vert].offset);
+        glDrawElements(GL_TRIANGLES, static_cast<GLsizei>(face.num_mesh_verts),
+                GL_UNSIGNED_INT, &m_mesh_verts[face.mesh_vert].offset);
     }
 }
 
-void MapBSP46::draw_leaves(const index_vector_t& leaves, const CFrustum& frustum) const
+void MapBSP46::draw_leaves(const leaf_ptr_vec_t& leaf_ptrs,
+        const GLFrustum<float>& frustum) const
 {
-    CVec box_min, box_max;
-    index_vector_t faces;
+    vec3 box_min, box_max;
+    face_index_vec_t face_indices;
 
-    for (auto&& leaf_id : leaves) {
-        const DLeaf_t& leaf = m_leaves[leaf_id];
-        make_aabb(leaf.mins, leaf.maxs, &box_min, &box_max);
-        if (!frustum.AaBbVisible(box_min, box_max)) {
+    for (auto leaf_ptr : leaf_ptrs) {
+        make_aabb(leaf_ptr->mins, leaf_ptr->maxs, &box_min, &box_max);
+        if (!frustum.is_aabb_visible(box_min, box_max)) {
             continue;
         }
-        const DLeafFace_t* leaf_face = m_leaf_faces.data() + leaf.leaf_face;
-        for (int j = 0; j < leaf.num_leaf_faces; ++j) {
-            faces.push_back(leaf_face[j].face);
+        const DLeafFace_t* leaf_face = m_leaf_faces.data() + leaf_ptr->leaf_face;
+        for (std::int32_t j = 0; j < leaf_ptr->num_leaf_faces; ++j) {
+            face_indices.push_back(static_cast<face_index_size_t>(
+                        leaf_face[j].face));
         }
     }
 
-    std::sort(faces.begin(), faces.end());
-    auto end = std::unique(faces.begin(), faces.end());
-    for (auto face_it = faces.cbegin(); face_it != end; ++face_it) {
+    std::sort(face_indices.begin(), face_indices.end());
+    auto end = std::unique(face_indices.begin(), face_indices.end());
+    for (auto face_it = face_indices.cbegin(); face_it != end; ++face_it) {
         draw_face(*face_it);
     }
 
@@ -713,7 +686,7 @@ void MapBSP46::draw_leaves(const index_vector_t& leaves, const CFrustum& frustum
 
     for (auto&& node : m_nodes) {
         make_aabb(node.mins, node.maxs, &box_min, &box_max);
-        if (frustum.AaBbVisible(box_min, box_max)) {
+        if (frustum.is_aabb_visible(box_min, box_max)) {
             glColor3f(0.0f, 1.0f, 0.0f);
         }
         else {
@@ -730,27 +703,80 @@ void MapBSP46::draw_leaves(const index_vector_t& leaves, const CFrustum& frustum
 #endif
 }
 
-void MapBSP46::draw(const CVec& camera_pos, const CFrustum& frustum) const
+const DLeaf_t& MapBSP46::find_leaf(const vec3& pos) const
 {
-    int leaf_index = find_leaf(camera_pos);
-    int cluster = m_leaves[leaf_index].cluster;
-    if (cluster < 0) {
+    using leaves_size_t = decltype(m_leaves)::size_type;
+    typename std::make_signed<leaves_size_t>::type index = 0;
+    while (index >= 0) {
+        using nodes_size_t = decltype(m_nodes)::size_type;
+        const DNode_t& node = m_nodes[static_cast<nodes_size_t>(index)];
+
+        using planes_size_t = decltype(m_planes)::size_type;
+        const DPlane_t& plane = m_planes[static_cast<planes_size_t>(node.plane)];
+
+        vec3 v(plane.normal[0], plane.normal[1], plane.normal[2]);
+        const float dist = v.dot(pos) - plane.dist;
+        if (dist >= 0.0f) {
+            index = node.front;
+        }
+        else {
+            index = node.back;
+        }
+    }
+    return m_leaves[static_cast<leaves_size_t>(~index)];
+}
+
+inline bool MapBSP46::is_cluster_visible(const std::int32_t cur_cluster,
+        const std::int32_t cluster) const
+{
+    using bitset_size_t = decltype(m_vis_bitset)::size_type;
+    const auto n = static_cast<bitset_size_t>((cur_cluster *
+                m_vis_data.bytes_per_cluster) + (cluster >> 3));
+    return m_vis_bitset[n] & (1 << (cluster & 7));
+}
+
+void MapBSP46::draw(const vec3& camera_pos, const GLFrustum<float>& frustum)
+    const
+{
+    const DLeaf_t& camera_leaf = find_leaf(camera_pos);
+    if (camera_leaf.cluster < 0) {
         draw(frustum);
         return;
     }
 
-    index_vector_t leaves;
-    for (size_t i = 0; i < m_leaves.size(); ++i) {
-        if (is_cluster_visible(cluster, m_leaves[i].cluster)) {
-            leaves.push_back(i);
+    leaf_ptr_vec_t leaf_ptrs;
+    for (auto&& leaf : m_leaves) {
+        if (is_cluster_visible(camera_leaf.cluster, leaf.cluster)) {
+            leaf_ptrs.push_back(&leaf);
         }
     }
-    draw_leaves(leaves, frustum);
+    draw_leaves(leaf_ptrs, frustum);
 }
 
-void MapBSP46::draw(const CFrustum& frustum) const
+void MapBSP46::collect_leaves(leaf_ptr_vec_t* leaf_ptrs, const int index,
+        const GLFrustum<float>& frustum) const
 {
-    index_vector_t leaves;
-    collect_leaves(&leaves, 0, frustum);
-    draw_leaves(leaves, frustum);
+    if (index < 0) {
+        using leaves_size_t = decltype(m_leaves)::size_type;
+        leaf_ptrs->push_back(&m_leaves[static_cast<leaves_size_t>(~index)]);
+        return;
+    }
+
+    using nodes_size_t = decltype(m_nodes)::size_type;
+    const DNode_t& node = m_nodes[static_cast<nodes_size_t>(index)];
+
+    vec3 box_min, box_max;
+    make_aabb(node.mins, node.maxs, &box_min, &box_max);
+    if (!frustum.is_aabb_visible(box_min, box_max)) {
+        return;
+    }
+    collect_leaves(leaf_ptrs, node.front, frustum);
+    collect_leaves(leaf_ptrs, node.back, frustum);
+}
+
+void MapBSP46::draw(const GLFrustum<float>& frustum) const
+{
+    leaf_ptr_vec_t leaf_ptrs;
+    collect_leaves(&leaf_ptrs, 0, frustum);
+    draw_leaves(leaf_ptrs, frustum);
 }

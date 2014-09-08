@@ -1,6 +1,7 @@
 #ifndef Q3BSP__BSP_H
 #define Q3BSP__BSP_H
 
+#include <type_traits>
 #include <vector>
 #include <list>
 #include <cstdint>
@@ -8,17 +9,20 @@
 #define GL_GLEXT_PROTOTYPES
 #include <GL/gl.h>
 
-#include "ibsp46.h"
-#include "vec.h"
-#include "archive.h"
-#include "frustum.h"
+#include "src/ibsp46.h"
+#include "src/archive.h"
+#include "src/texture.h"
+#include "src/math/vector3.h"
 
 class BinaryIO;
+
+template <class T>
+class GLFrustum;
 
 class SimpleBezierSurface
 {
     public:
-        SimpleBezierSurface(const DVertex_t* const, const int);
+        SimpleBezierSurface(const DVertex_t* const, const unsigned);
 
         SimpleBezierSurface(const SimpleBezierSurface&) = delete;
         void operator=(const SimpleBezierSurface&) = delete;
@@ -26,14 +30,15 @@ class SimpleBezierSurface
         void draw() const;
 
     private:
-        int                     m_num_vertices;
+        unsigned                m_num_vertices;
         std::vector<DVertex_t>  m_vertices;
 };
 
 class GLBezierSurface
 {
     public:
-        GLBezierSurface(const DVertex_t* const, const int, const int, const int);
+        GLBezierSurface(const DVertex_t* const, const int, const int,
+                const unsigned);
         ~GLBezierSurface() noexcept;
 
         GLBezierSurface(const GLBezierSurface&) = delete;
@@ -54,12 +59,10 @@ class MapBSP46
         MapBSP46(const MapBSP46&) = delete;
         void operator=(const MapBSP46&) = delete;
 
-        void draw(const CVec&, const CFrustum&) const;
+        void draw(const vec3&, const GLFrustum<float>&) const;
 
     private:
-        using bezier_vector_t = std::vector<GLBezierSurface*>;
-        using tex_id_vector_t = std::vector<GLuint>;
-        using index_vector_t = std::vector<int>;
+        TextureManager              m_tex_mgr;
 
         DHeader_t                   m_header;
         DDir_t                      m_directory;
@@ -77,10 +80,17 @@ class MapBSP46
         DVisData_t                  m_vis_data;
         std::vector<std::uint8_t>   m_vis_bitset;
 
-        bezier_vector_t             m_beziers;
+        std::vector<GLBezierSurface*> m_beziers;
 
-        tex_id_vector_t             m_texture_ids;
-        tex_id_vector_t             m_lightmap_ids;
+        std::vector<GLuint>         m_texture_ids;
+        std::vector<GLuint>         m_lightmap_ids;
+
+        using leaf_ptr_vec_t = std::vector<const DLeaf_t*>;
+
+        using face_index_size_t = std::common_type<
+            decltype(m_faces)::size_type,
+            decltype(m_beziers)::size_type>::type;
+        using face_index_vec_t = std::vector<face_index_size_t>;
 
         void bsp_read_header(BinaryIO*);
         void bsp_read_directory(BinaryIO*);
@@ -98,15 +108,15 @@ class MapBSP46
         void load_textures(const PAK3Archive&);
         void process_lightmaps();
 
-        bool is_cluster_visible(const int, const int) const;
+        void draw_face(const face_index_size_t) const;
+        void draw_leaves(const leaf_ptr_vec_t&, const GLFrustum<float>&) const;
 
-        int find_leaf(const CVec&) const;
-        void collect_leaves(index_vector_t*, const int, const CFrustum&) const;
+        const DLeaf_t& find_leaf(const vec3&) const;
+        bool is_cluster_visible(const std::int32_t, const std::int32_t) const;
 
-        void draw_face(const std::size_t) const;
-        void draw_leaves(const index_vector_t&, const CFrustum&) const;
-
-        void draw(const CFrustum&) const;
+        void collect_leaves(leaf_ptr_vec_t*, const int, const GLFrustum<float>&)
+            const;
+        void draw(const GLFrustum<float>&) const;
 };
 
 #endif
