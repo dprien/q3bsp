@@ -3,8 +3,8 @@
 
 #include <zip.h>
 
-#include "exception.h"
-#include "archive.h"
+#include "src/exception.h"
+#include "src/archive.h"
 
 namespace
 {

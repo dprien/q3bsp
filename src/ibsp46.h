@@ -3,7 +3,7 @@
 
 #include <cstdint>
 
-#include "ibsp.h"
+#include "src/ibsp.h"
 
 const std::uint32_t g_ibsp46_version = 46;
 
